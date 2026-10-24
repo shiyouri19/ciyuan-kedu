@@ -13,8 +13,11 @@ import {
   getAnimeDetail,
   assessArchive,
   archiveAnimeEntry,
-  restoreAnimeEntry
+  restoreAnimeEntry,
+  assessDelete,
+  deleteAnimeEntry
 } from '../server/services/animeService.js';
+import { markEpisode } from '../server/services/episodeService.js';
 import { ValidationError, NotFoundError } from '../server/errors.js';
 
 function setup() {
@@ -249,7 +252,8 @@ test('归档评估：说明保留哪些数据，且不改动数据库', () => {
     assert.equal(info.will_delete_watch_history, false);
     assert.equal(info.will_delete_local_files, false);
     assert.equal(info.reversible, true);
-    assert.match(info.message, /归档/);
+    // 只在语义上断言，不锁死具体措辞（文案会改，「数据都保留」这个承诺不会改）
+    assert.match(info.message, /保留/);
 
     const detail = getAnimeDetail(db, a.anime.id);
     assert.equal(detail.state.rating, 9, '评估不应修改数据');
@@ -354,6 +358,99 @@ test('封面：非 http(s) 协议被拒绝', () => {
     for (const bad of ['javascript:alert(1)', 'file:///C:/x.jpg', 'ftp://a/b.jpg', 'not-a-url']) {
       assert.throws(() => createAnimeEntry(db, { canonical_title: 'x', cover_url: bad }), ValidationError, `应拒绝 ${bad}`);
     }
+  } finally {
+    cleanup();
+  }
+});
+
+/* ---------------- 彻底删除 ---------------- */
+
+test('彻底删除：作品、季、集、观看记录一并消失', () => {
+  const { db, cleanup } = setup();
+  try {
+    const { anime } = createAnimeEntry(db, { canonical_title: '要删掉的番', episodes: 12 });
+    // 标记两集
+    const eps = db
+      .prepare(
+        `SELECT e.id FROM episodes e JOIN seasons s ON s.id = e.season_id WHERE s.anime_id = ? ORDER BY e.sort_order`
+      )
+      .all(anime.id);
+    markEpisode(db, eps[0].id, true, '2025-01-01');
+    markEpisode(db, eps[1].id, true, '2025-01-02');
+
+    const info = assessDelete(db, anime.id);
+    assert.equal(info.episodes, 12);
+    assert.equal(info.watched, 2);
+    assert.equal(info.reversible, false);
+
+    const res = deleteAnimeEntry(db, anime.id);
+    assert.equal(res.deleted, true);
+    assert.equal(res.title, '要删掉的番');
+
+    assert.equal(searchLibrary(db, {}).length, 0, '列表里没有了');
+
+    const leftEpisodes = db
+      .prepare('SELECT COUNT(*) c FROM episodes e JOIN seasons s ON s.id = e.season_id WHERE s.anime_id = ?')
+      .get(anime.id);
+    assert.equal(leftEpisodes.c, 0, '集记录被级联删除');
+
+    const leftWatch = db
+      .prepare(
+        `SELECT COUNT(*) c FROM episode_watch_state w
+           JOIN episodes e ON e.id = w.episode_id
+           JOIN seasons s ON s.id = e.season_id
+          WHERE s.anime_id = ?`
+      )
+      .get(anime.id);
+    assert.equal(leftWatch.c, 0, '观看记录被级联删除');
+  } finally {
+    cleanup();
+  }
+});
+
+test('彻底删除：不存在的作品返回 NotFound', () => {
+  const { db, cleanup } = setup();
+  try {
+    assert.throws(() => deleteAnimeEntry(db, 'nope'), NotFoundError);
+  } finally {
+    cleanup();
+  }
+});
+
+test('彻底删除：只删目标，不波及别的作品', () => {
+  const { db, cleanup } = setup();
+  try {
+    const a = createAnimeEntry(db, { canonical_title: '留着', episodes: 12 });
+    const b = createAnimeEntry(db, { canonical_title: '删掉', episodes: 12 });
+
+    deleteAnimeEntry(db, b.anime.id);
+
+    const list = searchLibrary(db, {});
+    assert.equal(list.length, 1);
+    assert.equal(list[0].canonical_title, '留着');
+    assert.equal(getAnimeDetail(db, a.anime.id).episode_count, 12, '另一部集数不受影响');
+  } finally {
+    cleanup();
+  }
+});
+
+test('彻底删除：共享的标签本身保留', () => {
+  const { db, cleanup } = setup();
+  try {
+    const a = createAnimeEntry(db, { canonical_title: '番A', tags: ['治愈'] });
+    const b = createAnimeEntry(db, { canonical_title: '番B', tags: ['治愈'] });
+
+    deleteAnimeEntry(db, a.anime.id);
+
+    // 标签表是共享的，删作品不应删标签定义
+    const tag = db.prepare("SELECT COUNT(*) c FROM tags WHERE name = '治愈'").get();
+    assert.equal(tag.c, 1, '标签定义还在');
+
+    const link = db.prepare('SELECT COUNT(*) c FROM anime_tags WHERE anime_id = ?').get(a.anime.id);
+    assert.equal(link.c, 0, '关联被删除');
+
+    const other = db.prepare('SELECT COUNT(*) c FROM anime_tags WHERE anime_id = ?').get(b.anime.id);
+    assert.equal(other.c, 1, '别的作品的关联不受影响');
   } finally {
     cleanup();
   }

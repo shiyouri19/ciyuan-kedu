@@ -12,6 +12,7 @@ import {
   assessArchive,
   archiveAnimeEntry,
   restoreAnimeEntry,
+  deleteAnimeEntry,
   ANIME_TYPES,
   STATUSES,
   SORT_FIELDS
@@ -230,6 +231,8 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
         const body = await readJsonBody(req);
         return json(200, updateAnimeEntry(db, id, body));
       }
+      // 彻底删除，不可逆。前端必须先展示影响再确认
+      if (method === 'DELETE') return json(200, deleteAnimeEntry(db, id));
       return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
     }
 

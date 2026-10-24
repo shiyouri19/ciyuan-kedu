@@ -330,10 +330,22 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   font-weight: 500;
 }
+
+/* 移除/恢复/彻底删除：常驻标题栏，不用滚到底才看见 */
+.drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.link-btn.danger { color: var(--danger); }
+.link-btn.danger:hover { background: #fdf3f3; }
 
 .drawer-body { padding: 18px; overflow-y: auto; flex: 1; }
 

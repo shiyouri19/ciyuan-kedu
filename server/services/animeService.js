@@ -390,7 +390,7 @@ export function assessArchive(db, id) {
     will_delete_watch_history: false,
     will_delete_local_files: false,
     reversible: true,
-    message: '归档只把作品移出列表，个人状态、评分、备注、标签和观看记录都会保留，可随时恢复。'
+    message: '移出列表不会删除任何数据：个人状态、评分、备注、标签和观看记录都会保留，随时可以恢复。'
   };
 }
 
@@ -412,4 +412,52 @@ export function restoreAnimeEntry(db, id) {
     id
   );
   return { ok: true, anime_id: id, restored: true };
+}
+
+/**
+ * 彻底删除前的盘点：会连带删掉多少东西。
+ * 这个操作不可逆，所以前端必须先展示这些数字再让用户确认。
+ */
+export function assessDelete(db, id) {
+  const anime = requireAnime(db, id);
+
+  const row = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM episodes e
+            JOIN seasons s ON s.id = e.season_id
+           WHERE s.anime_id = ?) AS episodes,
+         (SELECT COUNT(*) FROM episode_watch_state w
+            JOIN episodes e ON e.id = w.episode_id
+            JOIN seasons s ON s.id = e.season_id
+           WHERE s.anime_id = ? AND w.is_watched = 1) AS watched,
+         (SELECT COUNT(*) FROM anime_tags WHERE anime_id = ?) AS tags`
+    )
+    .get(id, id, id);
+
+  return {
+    anime_id: id,
+    title: anime.canonical_title,
+    archived: Boolean(anime.deleted_at),
+    episodes: Number(row?.episodes ?? 0),
+    watched: Number(row?.watched ?? 0),
+    tags: Number(row?.tags ?? 0),
+    reversible: false
+  };
+}
+
+/**
+ * 彻底删除：物理删除作品及其季、集、观看记录（外键全部 CASCADE）。
+ *
+ * 这是整个项目唯一不可逆的操作。只想让作品从列表消失请用 archiveAnimeEntry，
+ * 那个随时能恢复。这里删掉的观看记录是真的没了。
+ *
+ * 调用方必须先让用户确认，并展示 assessDelete 给出的影响数字。
+ */
+export function deleteAnimeEntry(db, id) {
+  const info = assessDelete(db, id);
+  return withTransaction(db, () => {
+    db.prepare('DELETE FROM anime WHERE id = ?').run(id);
+    return { ok: true, deleted: true, ...info };
+  });
 }

@@ -540,28 +540,53 @@ function renderDrawer(detail) {
   enrichBtn.addEventListener('click', () => enrichOne(anime, enrichBtn));
   actions.appendChild(enrichBtn);
 
+  // 彻底删除放在底部，与「移出列表」分开：
+  // 移出是软删除、随时能恢复；删除是不可逆的，不该和它挨着放
+  if (!anime.deleted_at) {
+    const delBtn = el('button', 'btn small danger', '彻底删除');
+    delBtn.type = 'button';
+    delBtn.addEventListener('click', () => deleteWithConfirm(detail));
+    actions.appendChild(delBtn);
+  }
+
+  body.appendChild(actions);
+
+  // 头部常驻操作：移除/恢复/删除，不用滚到底才看得见
+  renderDrawerActions(detail);
+}
+
+/** 抽屉标题栏右侧的操作按钮 */
+function renderDrawerActions(detail) {
+  const host = $('#drawerActions');
+  host.innerHTML = '';
+  const anime = detail.anime;
+
   if (anime.deleted_at) {
-    const restoreBtn = el('button', 'btn small primary', '恢复');
+    const restoreBtn = el('button', 'link-btn', '恢复');
     restoreBtn.type = 'button';
     restoreBtn.addEventListener('click', async () => {
       try {
         await api(`/api/anime/${anime.id}/restore`, { method: 'POST' });
-        toast('已恢复');
+        toast('已恢复到列表');
         closeDrawer();
         load();
       } catch (err) {
         toast(err.message, true);
       }
     });
-    actions.appendChild(restoreBtn);
-  } else {
-    const archiveBtn = el('button', 'btn small danger', '归档');
-    archiveBtn.type = 'button';
-    archiveBtn.addEventListener('click', () => archiveWithConfirm(anime.id));
-    actions.appendChild(archiveBtn);
-  }
+    host.appendChild(restoreBtn);
 
-  body.appendChild(actions);
+    const delBtn = el('button', 'link-btn danger', '彻底删除');
+    delBtn.type = 'button';
+    delBtn.addEventListener('click', () => deleteWithConfirm(detail));
+    host.appendChild(delBtn);
+  } else {
+    const removeBtn = el('button', 'link-btn', '移出列表');
+    removeBtn.type = 'button';
+    removeBtn.title = '从列表移走，记录都保留，随时可以恢复';
+    removeBtn.addEventListener('click', () => archiveWithConfirm(anime.id));
+    host.appendChild(removeBtn);
+  }
 }
 
 /* ---------------- 补全元数据 ---------------- */
@@ -1195,16 +1220,57 @@ function batchBlock(view, progress, refresh) {
   return details;
 }
 
+/**
+ * 彻底删除。不可逆，所以：
+ * 1. 确认框里逐项列出会删掉什么，而不是一句「确定删除？」
+ * 2. 有观看记录时再确认一次——那是删了找不回来的东西
+ * 3. 顺带指路「移出列表」，避免用户为了清理列表而误删记录
+ */
+async function deleteWithConfirm(detail) {
+  const anime = detail.anime;
+  const lines = [`彻底删除「${anime.canonical_title}」？`, ''];
+
+  const doomed = [];
+  if (detail.episode_count > 0) doomed.push(`${detail.episode_count} 集记录`);
+  if (detail.watched_count > 0) doomed.push(`${detail.watched_count} 条观看记录（含日期）`);
+  if (detail.tags?.length) doomed.push(`${detail.tags.length} 个标签关联`);
+
+  if (doomed.length) {
+    lines.push(`会一并删除：${doomed.join('、')}`);
+  }
+  lines.push('');
+  lines.push('删除后无法恢复。');
+  lines.push('如果只是想让它从列表里消失，点右上角「移出列表」，那个随时能恢复。');
+
+  if (!window.confirm(lines.join('\n'))) return;
+
+  if (detail.watched_count > 0) {
+    const again = window.confirm(
+      `「${anime.canonical_title}」里有 ${detail.watched_count} 条观看记录。\n\n删掉之后就真的没有了，确定继续？`
+    );
+    if (!again) return;
+  }
+
+  try {
+    const res = await api(`/api/anime/${anime.id}`, { method: 'DELETE' });
+    toast(`已删除「${res.deleted}」`);
+    closeDrawer();
+    load();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 async function archiveWithConfirm(id) {
   try {
     const info = await api(`/api/anime/${id}/archive-check`);
     const ok = window.confirm(
-      `归档「${info.title}」？\n\n${info.message}\n\n` +
+      `把「${info.title}」移出列表？\n\n${info.message}\n\n` +
         `已看 ${info.watched_episodes} 集，这些记录都会保留。`
     );
     if (!ok) return;
     await api(`/api/anime/${id}/archive`, { method: 'POST' });
-    toast('已归档，可在「已归档」里恢复');
+    toast('已移出列表，可在「已归档」里恢复');
     closeDrawer();
     load();
   } catch (err) {
