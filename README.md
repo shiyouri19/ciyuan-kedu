@@ -73,7 +73,7 @@ node --disable-warning=ExperimentalWarning server/index.js
 node --disable-warning=ExperimentalWarning --test
 ```
 
-或 `npm test`。当前 105 个用例，覆盖：
+或 `npm test`。当前 113 个用例，覆盖：
 
 - **迁移**：首次应用、幂等重复执行、失败回滚、外键约束、跨进程持久化
 - **作品**：创建/更新/软删除、标题必填与长度、年份与类型与评分越界、状态 CHECK 约束
@@ -84,6 +84,7 @@ node --disable-warning=ExperimentalWarning --test
 - **观看状态**：重复标记不重复计数、不漂移日期、取消清空日期、显式改日期（含日期不详与非法日期）、批量幂等
 - **季集管理**：建集/扩集幂等、缩集只删未观看的、已观看的集在缩集时保留
 - **进度**：`+1` 补最小未看集（跳看后仍正确）、`-1` 撤销最后已看集、`看到第 N 集` 只补不删、缺口检测
+- **批量补记**：区间标记可统一日期、已记过的集不被覆盖、日期不详、非法范围拒绝
 - **统计**：按首次观看日期归年、日期不详不归年、季度由月度聚合、未知时长只计集数、归档记录仍计入
 - **接口**：新建 201 / 校验 400 带字段 / 坏 JSON 400 / 404 / 405 / 路径穿越拒绝 / 归档恢复全流程
 
@@ -171,7 +172,7 @@ tools/
 | GET | `/api/stats?year=` | 年度/季度/月度统计，含日期不详与时长未知的如实报告 |
 | GET | `/api/anime/:id/episodes` | 季集列表与进度（含 `has_gap` 跳看标记、时长统计） |
 | PUT | `/api/anime/:id/episodes` | 设定总集数，自动建集；缩集时不删已观看的集 |
-| POST | `/api/anime/:id/progress` | `action: next / prev / set`，推进或设置进度 |
+| POST | `/api/anime/:id/progress` | `action: next / prev / set / range`；`range` 为区间批量补记，可带 `date` |
 | POST | `/api/anime/:id/enrich` | 补全封面/集数/简介/标签；带 `source` + `external_id` 时为手动绑定 |
 | POST | `/api/episodes/:id/watch` | 单集标记，`{ watched, date? }`；不传日期即当天 |
 | PUT | `/api/episodes/:id/watched-at` | 单独改观看日期，`{ date }`；传 `null` 表示日期不详 |

@@ -25,7 +25,8 @@ import {
   markEpisode,
   setWatchedDate,
   advanceProgress,
-  setProgress
+  setProgress,
+  markRange
 } from './services/episodeService.js';
 import { enrichAnime, applyCandidate } from './services/enrichService.js';
 import { getStats } from './services/statsService.js';
@@ -273,7 +274,8 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       if (action === 'next') return json(200, advanceProgress(db, id, 1));
       if (action === 'prev') return json(200, advanceProgress(db, id, -1));
       if (action === 'set') return json(200, setProgress(db, id, body.episode_number));
-      return sendError(res, 400, 'invalid_action', 'action 需为 next / prev / set');
+      if (action === 'range') return json(200, markRange(db, id, body.from, body.to, body.date ?? null));
+      return sendError(res, 400, 'invalid_action', 'action 需为 next / prev / set / range');
     }
 
     // ---- 单集标记 ----

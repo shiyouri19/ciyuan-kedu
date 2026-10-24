@@ -11,6 +11,7 @@ import {
   getEpisodesView,
   markEpisode,
   setWatchedDate,
+  markRange,
   advanceProgress,
   setProgress,
   computeProgress
@@ -538,6 +539,147 @@ test('改日期：统计会跟着变（跨年改正后要能挪动）', () => {
     const p = computeProgress(db, anime.id);
     assert.equal(p.watched, 1);
     assert.equal(p.minutes, 24);
+  } finally {
+    cleanup();
+  }
+});
+
+/* ---------------- 区间批量补记 ---------------- */
+
+test('批量补记：整段标记成功，日期统一', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+
+    const res = markRange(db, anime.id, 1, 12, '2024-03-15');
+    assert.equal(res.marked, 12);
+    assert.equal(res.skipped, 0);
+    assert.equal(res.date, '2024-03-15');
+    assert.equal(res.progress.watched, 12);
+    assert.equal(res.progress.current, 12);
+
+    const eps = getEpisodesView(db, anime.id).seasons[0].episodes;
+    assert.ok(
+      eps.every((e) => e.first_watched_at === '2024-03-15'),
+      '每一集都应该是补记的日期'
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：只标记未看的集，已记过的不动', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+    const eps = getEpisodesView(db, anime.id).seasons[0].episodes;
+
+    // 先手动标记第 3 集为 2026 年
+    markEpisode(db, eps[2].id, true, '2026-01-01');
+
+    const res = markRange(db, anime.id, 1, 5, '2024-03-15');
+    assert.equal(res.marked, 4, '第 1、2、4、5 集');
+    assert.equal(res.skipped, 1, '第 3 集跳过');
+
+    const after = getEpisodesView(db, anime.id).seasons[0].episodes;
+    assert.equal(after[2].first_watched_at, '2026-01-01', '已记过的日期不能被覆盖');
+    assert.equal(after[0].first_watched_at, '2024-03-15');
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：可以只标中间一段', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+
+    const res = markRange(db, anime.id, 5, 8, '2024-03-15');
+    assert.equal(res.marked, 4);
+    assert.equal(res.progress.watched, 4);
+    assert.equal(res.progress.current, 8, '看到第 8 集');
+    assert.equal(res.progress.has_gap, true, '1-4 没看，是缺口');
+
+    const eps = getEpisodesView(db, anime.id).seasons[0].episodes;
+    assert.equal(eps[4].is_watched, true);
+    assert.equal(eps[4].first_watched_at, '2024-03-15');
+    assert.equal(eps[3].is_watched, false, '第 4 集不该被标');
+    assert.equal(eps[8].is_watched, false, '第 9 集不该被标');
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：日期留空表示日期不详', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+
+    const res = markRange(db, anime.id, 1, 3, null);
+    assert.equal(res.marked, 3);
+    assert.equal(res.date, null);
+
+    const eps = getEpisodesView(db, anime.id).seasons[0].episodes;
+    assert.equal(eps[0].first_watched_at, null);
+    assert.equal(eps[0].is_watched, true, '日期不详仍然是已看');
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：范围超出实际集数时只标存在的', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+
+    const res = markRange(db, anime.id, 10, 20, '2024-03-15');
+    assert.equal(res.marked, 3, '只有 10、11、12 存在');
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：非法范围被拒绝', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+
+    assert.throws(() => markRange(db, anime.id, 5, 3), ValidationError, 'from > to');
+    assert.throws(() => markRange(db, anime.id, 0, 3), ValidationError, 'from = 0');
+    assert.throws(() => markRange(db, anime.id, 1, 0), ValidationError);
+    assert.throws(() => markRange(db, anime.id, 1, 12, '2024-02-30'), ValidationError, '不存在的日期');
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：没有集数时给出可理解的错误', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    assert.throws(() => markRange(db, anime.id, 1, 12), ValidationError);
+  } finally {
+    cleanup();
+  }
+});
+
+test('批量补记：整部一次补完，统计口径正确', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db, { default_episode_duration_minutes: 24 });
+    setEpisodeCount(db, anime.id, 12);
+
+    markRange(db, anime.id, 1, 12, '2024-03-15');
+    const p = computeProgress(db, anime.id);
+    assert.equal(p.watched, 12);
+    assert.equal(p.minutes, 288, '12 × 24');
+    assert.equal(p.at_end, true);
   } finally {
     cleanup();
   }

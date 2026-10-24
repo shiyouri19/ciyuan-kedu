@@ -50,6 +50,25 @@ export function parseEpisodeCount(value) {
   return n;
 }
 
+/**
+ * 观看日期校验。null / 空串表示「日期不详」。
+ * 用 Date.UTC 构造再逐项比对，而不是 toISOString 截字符串——
+ * 后者在 UTC+8 下会把 2026-10-25 算成 10-24，导致合法日期被判非法。
+ */
+export function parseWatchDate(date) {
+  if (date === null || date === undefined || date === '') return null;
+  const s = String(date).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    throw new ValidationError('观看日期格式需为 YYYY-MM-DD', 'date');
+  }
+  const [y, m, d] = s.split('-').map(Number);
+  const probe = new Date(Date.UTC(y, m - 1, d));
+  if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== m - 1 || probe.getUTCDate() !== d) {
+    throw new ValidationError('这个日期不存在', 'date');
+  }
+  return s;
+}
+
 /** 本篇季：取 season_number 为 1 的那季，没有则取排序第一季。多季支持留到以后。 */
 function getMainSeason(db, animeId) {
   const seasons = listSeasons(db, animeId);
@@ -169,14 +188,10 @@ export function markEpisode(db, episodeId, watched, date = null) {
     .get(episodeId);
   if (!row) throw new NotFoundError('这一集不存在');
 
-  if (date !== null && date !== undefined && date !== '') {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
-      throw new ValidationError('观看日期格式需为 YYYY-MM-DD', 'date');
-    }
-  }
+  const value = parseWatchDate(date);
 
   return withTransaction(db, () => {
-    setWatched(db, episodeId, Boolean(watched), date || null);
+    setWatched(db, episodeId, Boolean(watched), value);
     return {
       episode: {
         id: row.id,
@@ -211,20 +226,7 @@ export function setWatchedDate(db, episodeId, date) {
     throw new ValidationError('这一集还没标记为已看，先标记再改日期', 'watched');
   }
 
-  let value = null;
-  if (date !== null && date !== undefined && date !== '') {
-    const s = String(date).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      throw new ValidationError('观看日期格式需为 YYYY-MM-DD', 'date');
-    }
-    // 用 UTC 构造再比对，避开本地时区把 2026-02-30 判成 3 月 2 日的问题
-    const [y, m, d] = s.split('-').map(Number);
-    const probe = new Date(Date.UTC(y, m - 1, d));
-    if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== m - 1 || probe.getUTCDate() !== d) {
-      throw new ValidationError('这个日期不存在', 'date');
-    }
-    value = s;
-  }
+  const value = parseWatchDate(date);
 
   return withTransaction(db, () => {
     const updated = correctFirstWatchedAt(db, episodeId, value);
@@ -274,6 +276,60 @@ export function advanceProgress(db, animeId, delta) {
     return {
       at_start: false,
       changed: { id: last.id, episode_number: last.episode_number },
+      progress: computeProgress(db, animeId)
+    };
+  });
+}
+
+/**
+ * 区间补记：把第 from 到第 to 集标为已看，可统一指定观看日期。
+ *
+ * 只处理**未看**的集：已标记过的不动，用 skipped 报告跳过了几集。
+ * 理由是「补记」的语义是「把漏掉的补上」，不是「批量改日期」。
+ * 静默覆盖用户已有的日期，比少标几集糟糕得多。要改已看集的日期，用单集编辑。
+ */
+export function markRange(db, animeId, from, to, date = null) {
+  requireAnime(db, animeId);
+
+  const a = Number(from);
+  const b = Number(to);
+  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || b < a) {
+    throw new ValidationError('补记范围不对：起始集要小于等于结束集，且都大于 0', 'range');
+  }
+  if (b > MAX_EPISODES) {
+    throw new ValidationError(`集号不能超过 ${MAX_EPISODES}`, 'range');
+  }
+
+  const value = parseWatchDate(date);
+
+  return withTransaction(db, () => {
+    const season = getMainSeason(db, animeId);
+    const eps = season ? listEpisodes(db, season.id).filter((e) => Number(e.is_special) !== 1) : [];
+    if (!eps.length) {
+      throw new ValidationError('还没有设置集数，请先设定总集数', 'episode_count');
+    }
+
+    const inRange = eps.filter((e) => {
+      const n = Number(e.episode_number);
+      return n >= a && n <= b;
+    });
+
+    const targets = inRange.filter((e) => Number(e.is_watched) !== 1);
+    for (const e of targets) {
+      setWatched(db, e.id, true, value);
+      if (value === null) {
+        // setWatched 内部把 null 当成「没指定日期 → 用今天」，
+        // 而这里 null 表达的是「日期不详」，所以显式再改一次。
+        // 两个语义不能混用，否则「日期不详」的批量补记会悄悄写成今天。
+        correctFirstWatchedAt(db, e.id, null);
+      }
+    }
+
+    return {
+      marked: targets.length,
+      skipped: inRange.length - targets.length,
+      range: { from: a, to: b },
+      date: value,
       progress: computeProgress(db, animeId)
     };
   });

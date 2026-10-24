@@ -828,46 +828,12 @@ function renderEpisodeBlock(view) {
   });
   toolbar.appendChild(saveBtn);
 
-  // 看到第 N 集
-  if (p.total > 0) {
-    toolbar.appendChild(el('span', '', '·'));
-    toolbar.appendChild(el('span', '', '看到第'));
-
-    const jumpInput = document.createElement('input');
-    jumpInput.type = 'number';
-    jumpInput.min = '0';
-    jumpInput.max = String(p.total);
-    jumpInput.placeholder = 'N';
-    jumpInput.style.width = '56px';
-    toolbar.appendChild(jumpInput);
-
-    toolbar.appendChild(el('span', '', '集'));
-
-    const jumpBtn = el('button', 'btn small', '记到');
-    jumpBtn.type = 'button';
-    jumpBtn.addEventListener('click', async () => {
-      const n = Number(jumpInput.value);
-      if (!Number.isFinite(n) || n < 0) {
-        toast('集号不对', true);
-        return;
-      }
-      jumpBtn.disabled = true;
-      try {
-        const res = await api(`/api/anime/${view.anime_id}/progress`, {
-          method: 'POST',
-          body: { action: 'set', episode_number: n }
-        });
-        toast(res.marked ? `补记了 ${res.marked} 集` : '这些集已经记过了');
-        await refresh();
-      } catch (err) {
-        toast(err.message, true);
-        jumpBtn.disabled = false;
-      }
-    });
-    toolbar.appendChild(jumpBtn);
-  }
-
   wrap.appendChild(toolbar);
+
+  // 批量补记：一口气看完一部时一次标记多集，可以指定日期
+  if (p.total > 0) {
+    wrap.appendChild(batchBlock(view, p, refresh));
+  }
 
   // 时长说明：有未知就如实说，不假装统计完整
   if (p.watched > 0) {
@@ -1130,6 +1096,103 @@ function showEpisodeEditor(host, view, ep) {
 
   box.appendChild(actions);
   host.appendChild(box);
+}
+
+/**
+ * 批量补记：一次标记一段集数，可统一指定观看日期。
+ *
+ * 用 <details> 折叠而不是常驻表单——它不常用，但需要时能省掉十几次点击。
+ * 只标记未看的集，已有的日期不会被覆盖（补记 ≠ 批量改日期）。
+ */
+function batchBlock(view, progress, refresh) {
+  const details = document.createElement('details');
+  details.className = 'ep-batch';
+
+  const summary = document.createElement('summary');
+  summary.textContent = '批量补记（一次标记多集）';
+  details.appendChild(summary);
+
+  const body = el('div', 'ep-batch-body');
+
+  const rangeRow = el('div', 'ep-batch-row');
+  rangeRow.appendChild(el('span', '', '第'));
+
+  const fromInput = document.createElement('input');
+  fromInput.type = 'number';
+  fromInput.min = '1';
+  fromInput.max = String(progress.total);
+  fromInput.value = '1';
+  rangeRow.appendChild(fromInput);
+
+  rangeRow.appendChild(el('span', '', '到第'));
+
+  const toInput = document.createElement('input');
+  toInput.type = 'number';
+  toInput.min = '1';
+  toInput.max = String(progress.total);
+  toInput.value = String(progress.total);
+  rangeRow.appendChild(toInput);
+
+  rangeRow.appendChild(el('span', '', '集'));
+  body.appendChild(rangeRow);
+
+  const dateRow = el('div', 'ep-batch-row');
+  dateRow.appendChild(el('span', '', '观看日期'));
+
+  const dateInput = document.createElement('input');
+  dateInput.type = 'date';
+  dateRow.appendChild(dateInput);
+
+  const todayBtn = el('button', 'link-btn', '今天');
+  todayBtn.type = 'button';
+  todayBtn.addEventListener('click', () => {
+    dateInput.value = localToday();
+  });
+  dateRow.appendChild(todayBtn);
+
+  const clearBtn = el('button', 'link-btn', '清空');
+  clearBtn.type = 'button';
+  clearBtn.title = '清空表示日期不详，不计入任何年份的统计';
+  clearBtn.addEventListener('click', () => {
+    dateInput.value = '';
+  });
+  dateRow.appendChild(clearBtn);
+  body.appendChild(dateRow);
+
+  body.appendChild(el('div', 'ep-hint', '日期留空表示日期不详。已经标记过的集不会被改动。'));
+
+  const markBtn = el('button', 'btn small primary', '标记为已看');
+  markBtn.type = 'button';
+  markBtn.addEventListener('click', async () => {
+    const from = Number(fromInput.value);
+    const to = Number(toInput.value);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
+      toast('起始集要小于等于结束集', true);
+      return;
+    }
+
+    markBtn.disabled = true;
+    try {
+      const res = await api(`/api/anime/${view.anime_id}/progress`, {
+        method: 'POST',
+        body: { action: 'range', from, to, date: dateInput.value || null }
+      });
+
+      const parts = [res.marked ? `补记 ${res.marked} 集` : '没有新的集需要标记'];
+      if (res.skipped) parts.push(`${res.skipped} 集之前已记过，未改动`);
+      if (res.date) parts.push(`日期 ${res.date}`);
+      toast(parts.join('，'));
+
+      await refresh();
+    } catch (err) {
+      toast(err.message, true);
+      markBtn.disabled = false;
+    }
+  });
+  body.appendChild(markBtn);
+
+  details.appendChild(body);
+  return details;
 }
 
 async function archiveWithConfirm(id) {

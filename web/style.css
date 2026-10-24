@@ -1041,6 +1041,65 @@ button, input, select, textarea {
   align-items: center;
 }
 
+/* 批量补记：折叠面板，默认收起 */
+.ep-batch {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfbf9;
+  font-size: 12px;
+}
+
+.ep-batch > summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+  list-style: none;
+}
+
+.ep-batch > summary::-webkit-details-marker { display: none; }
+
+.ep-batch > summary::before {
+  content: '▸ ';
+  color: var(--faint);
+}
+
+.ep-batch[open] > summary::before { content: '▾ '; }
+
+.ep-batch-body {
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.ep-batch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ep-batch-row input[type="number"] {
+  width: 56px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  text-align: center;
+}
+
+.ep-batch-row input[type="date"] {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
 .ep-toolbar input {
   width: 64px;
   height: 30px;
