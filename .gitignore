@@ -27,7 +27,13 @@ desktop.ini
 # 早期方案草稿（含内部讨论记录，不公开）
 方案.md
 
+# 本地运维脚本
+推送到GitHub.bat
+
 # 调试用截图与浏览器临时 profile
 .edge-tmp/
 .shot-*.png
 .check.mjs
+
+# 推送日志（本地排障用）
+.push-log.txt

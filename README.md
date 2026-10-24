@@ -17,17 +17,17 @@
 | 前端 | 原生 HTML + CSS + JS，无框架无构建 |
 | 测试 | `node:test` + `node:assert` |
 
-**与 `anime_manager_project_docs` 的偏离：**
+**关于技术选型：**
 
-参考文档的基线是 Tauri 2 + React + TypeScript + Vite。本机没有 Rust/cargo，安装 Rust + MSVC Build Tools 需额外下载约 1.5–2 GB 并耗时约 30–60 分钟，因此在用户确认后改为 Node 方案。
+项目最初按 Tauri 2 + React + TypeScript + Vite 规划。实际落地时开发机没有 Rust/cargo，补齐工具链需额外下载约 1.5–2 GB、耗时约 30–60 分钟，因此改用 Node 方案。
 
-受影响的部分仅限「外壳」和「前端框架」。以下内容完全沿用参考文档，与外壳无关，将来若要切回 Tauri 可直接迁移：
+受影响的部分仅限「外壳」和「前端框架」。以下工程约定与选型无关，将来若要切回 Tauri 可直接迁移：
 
 - 分层职责（UI / use-case / repository / provider / 本机能力）
 - 版本化迁移机制与迁移测试要求
 - 数据模型（表、字段、约束、软删除、时间戳约定）
 - 数据保护规则（外部数据不得覆盖个人字段、文件丢失不影响记录等）
-- 验收清单与固定报告格式
+- 验收清单与提交约定
 
 如需要切回 Tauri，需要先安装 Rust 工具链，然后由 `package.json` 的 `type: module` 迁移到 Vite 工程结构。数据层代码和全部测试用例可原样复用。
 
@@ -201,11 +201,11 @@ tests/
 
 ## 数据库版本
 
-当前 `user_version = 1`，包含：
+当前 `user_version = 2`，包含：
 
-`anime` · `user_anime_state` · `seasons` · `episodes` · `episode_watch_state` · `tags` · `anime_tags` · `app_settings`
+`anime` · `user_anime_state` · `seasons` · `episodes` · `episode_watch_state` · `tags` · `anime_tags` · `app_settings` · `external_ids`
 
-新增迁移的方式：在 `server/db/migrations/` 下按 `NNN_描述.sql` 命名添加文件，不要修改已应用的迁移。
+新增迁移的方式：在 `server/db/migrations/` 下按 `NNN_描述.sql` 命名添加文件，不要修改已应用的迁移。迁移由 `PRAGMA user_version` 驱动，重复执行是幂等的。
 
 ---
 
@@ -214,11 +214,9 @@ tests/
 - **季 / 集管理界面**（数据表已就绪，接口未开放）
 - **观看记录标记**：列表内一键 `+1`、键盘快捷键、批量标记、撤销
 - 统计页（年度/季度、时长估算）
-- 外部元数据（AniList 主 / Bangumi 备，Provider 未接入）
-- 本地文件扫描与文件名匹配
+- 本地文件扫描与文件名匹配（对应「扫描本机视频自动入库」）
 - 播放器调用与进度上报
 - 备份 / 恢复的用户操作入口（底层 checkpoint 已就绪）
-- 封面上传或外链（目前用首字色块占位）
 - 单文件可执行打包
 
 ## 数据保护约定（实现时必须遵守）
