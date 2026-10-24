@@ -2,6 +2,8 @@
 
 个人动画观看账本。Windows 优先、本地优先：断网、没有本地视频、外部数据源全挂，核心功能依然可用。
 
+仓库：<https://github.com/shiyouri19/ciyuan-kedu>
+
 当前状态：**阶段 0–2 完成**；**搜索联想**（原属阶段 5 的一部分）已提前实现。
 观看记录、统计、本地文件扫描**尚未实现**。
 
@@ -38,6 +40,8 @@
 只需要 Node.js 22 或以上。没有 `npm install` 这一步。
 
 ```
+git clone https://github.com/shiyouri19/ciyuan-kedu.git
+cd ciyuan-kedu
 node --version   # 需要 v22+
 ```
 

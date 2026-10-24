@@ -2,6 +2,7 @@
 
 记录日期：2026-10-24
 状态：**已批准（用户 2026-10-24 明确确认「走 node 吧」）**
+仓库：<https://github.com/shiyouri19/ciyuan-kedu>（2026-10-25 公开，MIT）
 批准范围：外壳与前端框架的偏离，即 Node 本地服务 + 原生 HTML/JS，后续按 Edge「安装为应用」→ Electron 套壳推进。
 
 ## 批准后生效的约束
