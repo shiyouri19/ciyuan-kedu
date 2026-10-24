@@ -337,17 +337,45 @@ button, input, select, textarea {
 
 .drawer-body { padding: 18px; overflow-y: auto; flex: 1; }
 
-.detail-cover {
+/* 详情头部：竖版小封面 + 标题资料。竖图完整显示，不像横幅那样被裁掉大半 */
+.detail-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.detail-cover-sm {
   position: relative;
+  width: 92px;
+  height: 130px;
+  flex: 0 0 auto;
+  border-radius: 7px;
   overflow: hidden;
-  aspect-ratio: 16 / 7;
-  border-radius: 8px;
-  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 26px;
   color: #fff;
+}
+
+.detail-head-info {
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.detail-title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.detail-meta {
+  margin-top: 7px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .field { margin-bottom: 16px; }

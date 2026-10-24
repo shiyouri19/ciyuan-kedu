@@ -78,14 +78,23 @@ function firstChar(title) {
 
 /**
  * Bangumi 图床支持 /r/{宽}/ 前缀按需缩放，从原图实时缩放。
- * 它的预生成档不可靠——实测 c(common) 只有 150×207，放卡片上就是糊的。
- * 非 Bangumi 的图（AniList）没有这个服务，原样返回。
+ *
+ * 两个坑（都实测过）：
+ * 1. 预生成的 c(common) 档只有 150×207，放卡片上就是糊的，不要用。
+ * 2. **只接受 100 / 200 / 400 / 600 / 800 / 1200 六个数**，传 300 会 502。
+ *    所以这里把任意宽度向上吸附到最近档位。
  */
+const BGM_WIDTHS = [100, 200, 400, 600, 800, 1200];
+
 function resizeBgmUrl(raw, width) {
   if (!raw || !width) return raw;
   if (!/^https?:\/\/lain\.bgm\.tv\//.test(raw)) return raw;
+
+  const want = Number(width);
+  const w = BGM_WIDTHS.find((x) => x >= want) ?? BGM_WIDTHS[BGM_WIDTHS.length - 1];
+
   const stripped = raw.replace(/^(https?:\/\/lain\.bgm\.tv)\/r\/\d+\//, '$1/');
-  return stripped.replace(/^(https?:\/\/lain\.bgm\.tv)\//, `$1/r/${width}/`);
+  return stripped.replace(/^(https?:\/\/lain\.bgm\.tv)\//, `$1/r/${w}/`);
 }
 
 function coverProxyUrl(raw, width = 400) {
@@ -366,26 +375,35 @@ function renderDrawer(detail) {
   body.innerHTML = '';
   $('#drawerTitle').textContent = anime.deleted_at ? '作品详情（已归档）' : '作品详情';
 
-  const cover = el('div', 'detail-cover');
-  // 详情抽屉的封面约 440px 宽，取 800px 保证高分屏也清楚
-  paintCover(cover, anime.canonical_title, anime.cover_path, 800);
-  body.appendChild(cover);
+  // 头部：左侧竖版小封面 + 右侧标题与资料
+  // 原来是一条 16:7 的横幅，把 2:3 的竖图裁成横条只露出中间一截，既认不出是哪部又占地方。
+  // 改成小竖图后：封面完整、整体反而矮了 60px，首屏能看到进度。
+  const head = el('div', 'detail-head');
 
-  const titleNode = el('div', 'field-value');
-  titleNode.style.fontSize = '17px';
-  titleNode.style.fontWeight = '500';
-  titleNode.textContent = anime.canonical_title;
-  body.appendChild(fieldBlock('标题', titleNode));
+  const cover = el('div', 'detail-cover-sm');
+  // 92px 宽，高分屏按 2 倍算 184px，取 200 档刚好
+  paintCover(cover, anime.canonical_title, anime.cover_path, 200);
+  head.appendChild(cover);
 
-  const metaNode = el('div', 'field-value');
-  metaNode.textContent = [
-    anime.release_year ? `${anime.release_year} 年` : '年份待补',
-    TYPE_LABEL[anime.anime_type] ?? '类型待补',
-    anime.default_episode_duration_minutes ? `单集 ${anime.default_episode_duration_minutes} 分钟` : null
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  body.appendChild(fieldBlock('资料', metaNode));
+  const headInfo = el('div', 'detail-head-info');
+  headInfo.appendChild(el('div', 'detail-title', anime.canonical_title));
+  headInfo.appendChild(
+    el(
+      'div',
+      'detail-meta',
+      [
+        anime.release_year ? `${anime.release_year} 年` : '年份待补',
+        TYPE_LABEL[anime.anime_type] ?? '类型待补',
+        anime.default_episode_duration_minutes
+          ? `单集 ${anime.default_episode_duration_minutes} 分钟`
+          : null
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    )
+  );
+  head.appendChild(headInfo);
+  body.appendChild(head);
 
   // 观看进度放在状态之前：这是最高频的操作，不能要滚到底才看见
   const epHost = el('div', 'field-value');

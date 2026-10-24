@@ -29,18 +29,25 @@ export function toProxyUrl(coverUrl) {
 /**
  * Bangumi 图床支持 `/r/{宽}/` 前缀做动态缩放，从原图当前缩放。
  *
- * 这比用预生成的尺寸档好得多：实测 `c`(common) 档只有 150×207，
- * 放在 180px 宽的卡片上、再被高分屏放大，必然糊；而 `/r/400/` 是 400×552、49KB，
- * 同一个 URL 换个数字就能拿到合适尺寸，不用维护多份地址。
+ * 两个必须知道的坑（都实测过）：
+ * 1. 预生成的 `c`(common) 档只有 150×207，放卡片上必糊，不要用。
+ * 2. `/r/{宽}/` **只接受 100 / 200 / 400 / 600 / 800 / 1200 这六个数**，
+ *    传 300、500 之类的值会返回 502。所以这里把任意宽度向上吸附到最近档位。
  *
  * 非 Bangumi 的图（AniList 等）没有这个服务，原样返回。
  */
+export const BGM_WIDTHS = [100, 200, 400, 600, 800, 1200];
+
 export function bgmResize(url, width) {
   if (!url || !width) return url;
   if (!/^https?:\/\/lain\.bgm\.tv\//.test(url)) return url;
+
+  const want = Number(width);
+  const w = BGM_WIDTHS.find((x) => x >= want) ?? BGM_WIDTHS[BGM_WIDTHS.length - 1];
+
   // 先剥掉已有的 /r/{n}/ 前缀，避免重复叠加
   const stripped = url.replace(/^(https?:\/\/lain\.bgm\.tv)\/r\/\d+\//, '$1/');
-  return stripped.replace(/^(https?:\/\/lain\.bgm\.tv)\//, `$1/r/${width}/`);
+  return stripped.replace(/^(https?:\/\/lain\.bgm\.tv)\//, `$1/r/${w}/`);
 }
 
 /**
