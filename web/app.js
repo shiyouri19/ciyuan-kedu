@@ -76,8 +76,21 @@ function firstChar(title) {
   return (title ?? '?').trim().charAt(0) || '?';
 }
 
-function coverProxyUrl(raw) {
-  return raw ? `/api/cover?u=${encodeURIComponent(raw)}` : '';
+/**
+ * Bangumi 图床支持 /r/{宽}/ 前缀按需缩放，从原图实时缩放。
+ * 它的预生成档不可靠——实测 c(common) 只有 150×207，放卡片上就是糊的。
+ * 非 Bangumi 的图（AniList）没有这个服务，原样返回。
+ */
+function resizeBgmUrl(raw, width) {
+  if (!raw || !width) return raw;
+  if (!/^https?:\/\/lain\.bgm\.tv\//.test(raw)) return raw;
+  const stripped = raw.replace(/^(https?:\/\/lain\.bgm\.tv)\/r\/\d+\//, '$1/');
+  return stripped.replace(/^(https?:\/\/lain\.bgm\.tv)\//, `$1/r/${width}/`);
+}
+
+function coverProxyUrl(raw, width = 400) {
+  if (!raw) return '';
+  return `/api/cover?u=${encodeURIComponent(resizeBgmUrl(raw, width))}`;
 }
 
 /**
@@ -85,12 +98,12 @@ function coverProxyUrl(raw) {
  * 先放首字色块，图片加载成功后再盖上去；加载失败就保留色块。
  * 这样不会出现「图片没加载出来就是一片空白」。
  */
-function paintCover(node, title, coverPath) {
+function paintCover(node, title, coverPath, width = 400) {
   node.style.background = coverStyle(title);
   const initial = el('span', 'cover-initial', firstChar(title));
   node.appendChild(initial);
 
-  const url = coverProxyUrl(coverPath);
+  const url = coverProxyUrl(coverPath, width);
   if (!url) return;
 
   const img = document.createElement('img');
@@ -354,7 +367,8 @@ function renderDrawer(detail) {
   $('#drawerTitle').textContent = anime.deleted_at ? '作品详情（已归档）' : '作品详情';
 
   const cover = el('div', 'detail-cover');
-  paintCover(cover, anime.canonical_title, anime.cover_path);
+  // 详情抽屉的封面约 440px 宽，取 800px 保证高分屏也清楚
+  paintCover(cover, anime.canonical_title, anime.cover_path, 800);
   body.appendChild(cover);
 
   const titleNode = el('div', 'field-value');

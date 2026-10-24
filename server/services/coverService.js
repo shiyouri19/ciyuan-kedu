@@ -27,6 +27,23 @@ export function toProxyUrl(coverUrl) {
 }
 
 /**
+ * Bangumi 图床支持 `/r/{宽}/` 前缀做动态缩放，从原图当前缩放。
+ *
+ * 这比用预生成的尺寸档好得多：实测 `c`(common) 档只有 150×207，
+ * 放在 180px 宽的卡片上、再被高分屏放大，必然糊；而 `/r/400/` 是 400×552、49KB，
+ * 同一个 URL 换个数字就能拿到合适尺寸，不用维护多份地址。
+ *
+ * 非 Bangumi 的图（AniList 等）没有这个服务，原样返回。
+ */
+export function bgmResize(url, width) {
+  if (!url || !width) return url;
+  if (!/^https?:\/\/lain\.bgm\.tv\//.test(url)) return url;
+  // 先剥掉已有的 /r/{n}/ 前缀，避免重复叠加
+  const stripped = url.replace(/^(https?:\/\/lain\.bgm\.tv)\/r\/\d+\//, '$1/');
+  return stripped.replace(/^(https?:\/\/lain\.bgm\.tv)\//, `$1/r/${width}/`);
+}
+
+/**
  * 取封面。优先用本地缓存；没有就下载并落盘。
  * 浏览器直连 Bangumi 图床通常会被拦（跨域 + 需要代理），
  * 因此封面必须经本地服务转发，顺带也解决了离线查看和将来 canvas 合成的问题。

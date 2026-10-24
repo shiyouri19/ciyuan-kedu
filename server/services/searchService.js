@@ -1,6 +1,6 @@
 import { resolveProxy } from '../net.js';
 import { ValidationError } from '../errors.js';
-import { toProxyUrl } from './coverService.js';
+import { toProxyUrl, bgmResize } from './coverService.js';
 import * as bangumi from '../providers/bangumi.js';
 import * as anilist from '../providers/anilist.js';
 
@@ -12,8 +12,10 @@ import * as anilist from '../providers/anilist.js';
 function decorate(items) {
   return items.map((it) => ({
     ...it,
+    // 原图地址：入库时存这个，显示时再按用途缩放
     remoteCoverUrl: it.coverUrl,
-    coverUrl: toProxyUrl(it.coverUrl)
+    // 搜索候选的缩略图只有 44px 宽，用 r/200 就够，别为一张小图去下整张原图
+    coverUrl: toProxyUrl(bgmResize(it.coverUrl, 200))
   }));
 }
 
