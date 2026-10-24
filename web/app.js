@@ -1501,17 +1501,38 @@ function setupSearchBox() {
       const items = res.data ?? [];
       if (!items.length) {
         const m = res.meta ?? {};
-        if (!m.bangumi?.ok && !m.anilist?.ok) {
-          statusEl.textContent = '两个数据源都连不上。中文搜索需要代理，也可以直接在下面手动填写。';
-        } else if (!m.bangumi?.ok) {
+        const b = m.bangumi ?? {};
+        const a = m.anilist ?? {};
+        if (!b.ok && !a.ok) {
           statusEl.textContent =
-            '中文名搜不到：Bangumi 连不上（大陆访问需要代理）。可以先试日文名或罗马字，或直接在下面手动填写。';
+            '两个数据源都连不上（没检测到可用代理）。可以直接在下面手动填写。';
+        } else if (!b.ok) {
+          statusEl.textContent =
+            '中文名搜不到：Bangumi 连不上，没检测到可用代理。可以先试日文名或罗马字，或直接在下面手动填写。';
         } else {
-          statusEl.textContent = '没有找到，可以直接在下面手动填写';
+          statusEl.textContent = `没有找到。数据源是通的（Bangumi 经 ${
+            String(b.proxy ?? '').replace(/^https?:\/\//, '') || '直连'
+          }），可能名字对不上，试试别的写法。`;
         }
         return;
       }
-      statusEl.textContent = `找到 ${items.length} 条${res.cached ? '（缓存）' : ''}，点一条填入`;
+      // 把「走的是哪条路」显示出来。代理软件的「系统代理」开关关着，
+      // 但只要它的内核进程还在跑，本地端口就通，程序会主动连过去——
+      // 不写出来的话，用户会以为自己在裸连。
+      const m = res.meta ?? {};
+      const via = [];
+      for (const [label, info] of [
+        ['Bangumi', m.bangumi],
+        ['AniList', m.anilist]
+      ]) {
+        if (!info?.ok) continue;
+        const p = String(info.proxy ?? '');
+        via.push(p ? `${label} 经 ${p.replace(/^https?:\/\//, '')}` : `${label} 直连`);
+      }
+
+      statusEl.textContent =
+        `找到 ${items.length} 条${res.cached ? '（缓存）' : ''}，点一条填入` +
+        (via.length ? `　·　${via.join('，')}` : '');
       renderResults(items);
     } catch (err) {
       statusEl.textContent = err.message;
