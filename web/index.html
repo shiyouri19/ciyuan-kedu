@@ -18,14 +18,17 @@
 
   <nav class="filters">
     <div class="tabs" id="tabs"></div>
-    <div class="sortbox">
-      <label for="sort">排序</label>
-      <select id="sort">
-        <option value="updated_at:desc">最近更新</option>
-        <option value="canonical_title:asc">标题 A→Z</option>
-        <option value="release_year:desc">年份新→旧</option>
-        <option value="rating:desc">评分高→低</option>
-      </select>
+    <div class="filters-right">
+      <button id="enrichAllBtn" class="link-btn" type="button" title="为缺少封面的作品从数据源补齐资料">补全缺失资料</button>
+      <div class="sortbox">
+        <label for="sort">排序</label>
+        <select id="sort">
+          <option value="updated_at:desc">最近更新</option>
+          <option value="canonical_title:asc">标题 A→Z</option>
+          <option value="release_year:desc">年份新→旧</option>
+          <option value="rating:desc">评分高→低</option>
+        </select>
+      </div>
     </div>
   </nav>
 

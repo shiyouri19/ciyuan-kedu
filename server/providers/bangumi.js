@@ -238,7 +238,9 @@ export async function detail(externalId, { proxy = '', ua } = {}) {
       titleAlt: it.name_cn ? it.name : '',
       year: it.date ? Number(String(it.date).slice(0, 4)) : null,
       episodes: it.eps || it.total_episodes || null,
-      coverUrl: pickCover(it.images, 'large'),
+      // 用 common（400px）而不是 large：large 是原图，单张 600KB–1.8MB，
+      // 卡片和详情抽屉都只有 400px 宽，用原图纯属浪费带宽和磁盘
+      coverUrl: pickCover(it.images, 'common'),
       summary: stripHtml(it.summary),
       score: it.rating?.score ?? null,
       tags: pickTags(it, 3)

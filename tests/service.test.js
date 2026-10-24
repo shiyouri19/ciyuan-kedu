@@ -303,3 +303,58 @@ test('不存在的作品：详情、状态、归档均报 404', () => {
     cleanup();
   }
 });
+
+/* ---------------- 封面 ---------------- */
+
+test('封面：新建时可带原始图片地址并存下来', () => {
+  const { db, cleanup } = setup();
+  try {
+    const res = createAnimeEntry(db, {
+      canonical_title: '带封面的作品',
+      cover_url: 'https://lain.bgm.tv/pic/cover/c/aa/bb/123_x.jpg'
+    });
+    assert.equal(res.anime.cover_path, 'https://lain.bgm.tv/pic/cover/c/aa/bb/123_x.jpg');
+
+    const [row] = searchLibrary(db, {});
+    assert.equal(row.cover_path, 'https://lain.bgm.tv/pic/cover/c/aa/bb/123_x.jpg', '列表也要带出封面');
+  } finally {
+    cleanup();
+  }
+});
+
+test('封面：已有作品可以单独补封面，不影响个人状态', () => {
+  const { db, cleanup } = setup();
+  try {
+    const { anime } = createAnimeEntry(db, { canonical_title: '后补封面', status: 'watching', rating: 8 });
+    const res = updateAnimeEntry(db, anime.id, { cover_url: 'https://lain.bgm.tv/pic/cover/c/cc/dd/9_y.jpg' });
+
+    assert.equal(res.anime.cover_path, 'https://lain.bgm.tv/pic/cover/c/cc/dd/9_y.jpg');
+    assert.equal(res.state.rating, 8, '补封面不能动评分');
+    assert.equal(res.state.status, 'watching', '补封面不能动状态');
+  } finally {
+    cleanup();
+  }
+});
+
+test('封面：本地代理地址不能入库，否则 /api/cover 会套娃', () => {
+  const { db, cleanup } = setup();
+  try {
+    assert.throws(
+      () => createAnimeEntry(db, { canonical_title: 'x', cover_url: '/api/cover?u=https%3A%2F%2Fa.jpg' }),
+      ValidationError
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('封面：非 http(s) 协议被拒绝', () => {
+  const { db, cleanup } = setup();
+  try {
+    for (const bad of ['javascript:alert(1)', 'file:///C:/x.jpg', 'ftp://a/b.jpg', 'not-a-url']) {
+      assert.throws(() => createAnimeEntry(db, { canonical_title: 'x', cover_url: bad }), ValidationError, `应拒绝 ${bad}`);
+    }
+  } finally {
+    cleanup();
+  }
+});

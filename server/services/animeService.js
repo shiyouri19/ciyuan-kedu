@@ -90,6 +90,30 @@ function parseText(value, max = 500) {
   return s;
 }
 
+/**
+ * 封面地址。存的是远程 URL（不是本地文件），由 /api/cover 代理加载并落盘缓存。
+ * 只接受 http(s)，避免 javascript: 之类的协议混进来。
+ */
+function parseCoverUrl(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const s = String(value).trim();
+  if (s.length > 600) throw new ValidationError('封面地址过长', 'cover_url');
+  // 防御：本地代理地址不能入库，否则 /api/cover 会套娃，越套越长
+  if (s.startsWith('/api/cover')) {
+    throw new ValidationError('封面需存原始图片地址，不能是本地代理地址', 'cover_url');
+  }
+  let u;
+  try {
+    u = new URL(s);
+  } catch {
+    throw new ValidationError('封面地址不是合法 URL', 'cover_url');
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+    throw new ValidationError('封面地址必须是 http(s)', 'cover_url');
+  }
+  return s;
+}
+
 /** 标签：接受字符串数组，去空白、去重、限制长度 */
 export function parseTags(value) {  if (value === null || value === undefined) return [];
   if (!Array.isArray(value)) throw new ValidationError('标签需为字符串数组', 'tags');
@@ -241,6 +265,7 @@ export function createAnimeEntry(db, input = {}) {
   const rating = parseRating(input.rating);
   const notes = parseNotes(input.notes);
   const tags = parseTags(input.tags);
+  const coverUrl = parseCoverUrl(input.cover_url);
   const provider = parseProvider(input.source);
   const externalId = parseExternalId(input.external_id);
   // 录入时可以直接带集数（搜索选中后从数据源带过来），省掉「建完再设集数」这一步
@@ -262,6 +287,7 @@ export function createAnimeEntry(db, input = {}) {
       synopsis: parseText(input.synopsis, 4000),
       release_year: year,
       anime_type: type,
+      cover_path: coverUrl,
       default_episode_duration_minutes: duration
     });
 
@@ -302,6 +328,7 @@ export function updateAnimeEntry(db, id, patch = {}) {
   if ('default_episode_duration_minutes' in patch) {
     fields.default_episode_duration_minutes = parseDuration(patch.default_episode_duration_minutes);
   }
+  if ('cover_url' in patch) fields.cover_path = parseCoverUrl(patch.cover_url);
 
   if (Object.keys(fields).length === 0) {
     throw new ValidationError('没有可更新的字段');

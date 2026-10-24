@@ -135,6 +135,26 @@ button, input, select, textarea {
 
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 
+.filters-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.link-btn {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.link-btn:hover { background: var(--accent-soft); }
+.link-btn:disabled { color: var(--faint); cursor: default; background: none; }
+
 .tab {
   height: 30px;
   padding: 0 13px;
@@ -209,8 +229,21 @@ button, input, select, textarea {
 
 .cover.empty-cover { color: rgba(255, 255, 255, .92); }
 
+/* 封面图：铺满容器，首字色块作为加载前的兜底 */
+.cover-initial { position: relative; }
+
+.cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .badge {
   position: absolute;
+  z-index: 1;
   top: 8px; left: 8px;
   font-size: 11px;
   padding: 2px 7px;
@@ -305,6 +338,8 @@ button, input, select, textarea {
 .drawer-body { padding: 18px; overflow-y: auto; flex: 1; }
 
 .detail-cover {
+  position: relative;
+  overflow: hidden;
   aspect-ratio: 16 / 7;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -584,6 +619,59 @@ button, input, select, textarea {
 }
 
 .toast.error { background: #791f1f; }
+
+/* ---------- 补全候选 ---------- */
+
+.cand-block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 16px;
+  background: #fbfbf9;
+}
+
+.cand-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.cand-row {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.cand-row:hover { border-color: var(--accent); background: var(--accent-soft); }
+.cand-row:disabled { opacity: .5; cursor: default; }
+
+.cand-thumb {
+  width: 34px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  background: #e9e9e4;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: #fff;
+}
+
+.cand-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.cand-info { min-width: 0; }
+.cand-name { font-size: 13px; line-height: 1.3; }
+.cand-sub { font-size: 11px; color: var(--faint); margin-top: 2px; }
 
 /* ---------- 观看进度 ---------- */
 

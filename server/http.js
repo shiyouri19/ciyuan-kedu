@@ -26,6 +26,7 @@ import {
   advanceProgress,
   setProgress
 } from './services/episodeService.js';
+import { enrichAnime, applyCandidate } from './services/enrichService.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -276,6 +277,19 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       return json(200, markEpisode(db, id, body.watched !== false, body.date ?? null));
     }
 
+    // ---- 补全元数据（封面、集数、简介、标签）----
+    // 不带 body 时按已有外部 ID 或同名搜索自动补；带 source + external_id 时绑用户选中的那条
+    m = p.match(/^\/api\/anime\/([^/]+)\/enrich$/);
+    if (m) {
+      if (method !== 'POST') return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
+      const id = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      if (body.source) {
+        return json(200, await applyCandidate(db, cfg, id, body));
+      }
+      return json(200, await enrichAnime(db, cfg, id));
+    }
+
     // ---- 归档影响评估 ----
     m = p.match(/^\/api\/anime\/([^/]+)\/archive-check$/);    if (m) {
       if (method !== 'GET') return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
@@ -305,7 +319,7 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       const knownPath =
         /^\/api\/(health|meta|tags|anime|search|source-status|cover)$/.test(p) ||
         /^\/api\/anime\/[^/]+$/.test(p) ||
-        /^\/api\/anime\/[^/]+\/(status|tags|archive-check|archive|restore|episodes|progress)$/.test(p) ||
+        /^\/api\/anime\/[^/]+\/(status|tags|archive-check|archive|restore|episodes|progress|enrich)$/.test(p) ||
         /^\/api\/episodes\/[^/]+\/watch$/.test(p) ||
         /^\/api\/external\/[^/]+\/[^/]+$/.test(p);
 

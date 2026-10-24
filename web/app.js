@@ -76,6 +76,36 @@ function firstChar(title) {
   return (title ?? '?').trim().charAt(0) || '?';
 }
 
+function coverProxyUrl(raw) {
+  return raw ? `/api/cover?u=${encodeURIComponent(raw)}` : '';
+}
+
+/**
+ * 往封面容器里画东西。
+ * 先放首字色块，图片加载成功后再盖上去；加载失败就保留色块。
+ * 这样不会出现「图片没加载出来就是一片空白」。
+ */
+function paintCover(node, title, coverPath) {
+  node.style.background = coverStyle(title);
+  const initial = el('span', 'cover-initial', firstChar(title));
+  node.appendChild(initial);
+
+  const url = coverProxyUrl(coverPath);
+  if (!url) return;
+
+  const img = document.createElement('img');
+  img.className = 'cover-img';
+  img.alt = '';
+  img.loading = 'lazy';
+  img.onload = () => {
+    initial.hidden = true;
+    node.style.background = '#edece7';
+  };
+  img.onerror = () => img.remove();
+  img.src = url;
+  node.appendChild(img);
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -194,8 +224,7 @@ function cardEl(item) {
   card.tabIndex = 0;
 
   const cover = el('div', 'cover');
-  cover.style.background = coverStyle(item.canonical_title);
-  cover.textContent = firstChar(item.canonical_title);
+  paintCover(cover, item.canonical_title, item.cover_path);
 
   const badge = el('span', 'badge', STATUS_LABEL[item.status] ?? '想看');
   cover.appendChild(badge);
@@ -325,8 +354,7 @@ function renderDrawer(detail) {
   $('#drawerTitle').textContent = anime.deleted_at ? '作品详情（已归档）' : '作品详情';
 
   const cover = el('div', 'detail-cover');
-  cover.style.background = coverStyle(anime.canonical_title);
-  cover.textContent = firstChar(anime.canonical_title);
+  paintCover(cover, anime.canonical_title, anime.cover_path);
   body.appendChild(cover);
 
   const titleNode = el('div', 'field-value');
@@ -470,6 +498,12 @@ function renderDrawer(detail) {
   editBtn.addEventListener('click', () => openForm(detail));
   actions.appendChild(editBtn);
 
+  const enrichBtn = el('button', 'btn small', '补全资料');
+  enrichBtn.type = 'button';
+  enrichBtn.title = '从数据源补上封面、集数、简介、标签（只填空缺，不改已有内容）';
+  enrichBtn.addEventListener('click', () => enrichOne(anime, enrichBtn));
+  actions.appendChild(enrichBtn);
+
   if (anime.deleted_at) {
     const restoreBtn = el('button', 'btn small primary', '恢复');
     restoreBtn.type = 'button';
@@ -492,6 +526,141 @@ function renderDrawer(detail) {
   }
 
   body.appendChild(actions);
+}
+
+/* ---------------- 补全元数据 ---------------- */
+
+async function enrichAll() {
+  const btn = $('#enrichAllBtn');
+  const targets = state.list.filter((x) => !x.cover_path);
+
+  if (!targets.length) {
+    toast('所有作品都有封面了');
+    return;
+  }
+
+  btn.disabled = true;
+  let filled = 0;
+  let needConfirm = 0;
+  let failed = 0;
+
+  for (let i = 0; i < targets.length; i += 1) {
+    const t = targets[i];
+    btn.textContent = `补全中 ${i + 1}/${targets.length}`;
+    try {
+      const r = await api(`/api/anime/${t.id}/enrich`, { method: 'POST' });
+      if (r.matched) filled += 1;
+      else if (r.reason === 'ambiguous') needConfirm += 1;
+      else failed += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = '补全缺失资料';
+
+  const bits = [`补全 ${filled} 部`];
+  if (needConfirm) bits.push(`${needConfirm} 部需要手动确认`);
+  if (failed) bits.push(`${failed} 部没补到`);
+  toast(bits.join('，'));
+
+  await load();
+}
+
+async function enrichOne(anime, btn) {
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '补全中…';
+
+  try {
+    const res = await api(`/api/anime/${anime.id}/enrich`, { method: 'POST' });
+
+    if (res.matched) {
+      toast(res.filled.length ? `已补全：${res.filled.join('、')}` : '资料已经完整，没有可补的');
+      renderDrawer(await api(`/api/anime/${anime.id}`));
+      load();
+    } else if (res.reason === 'ambiguous') {
+      showCandidates($('#drawerBody'), anime.id, res.candidates);
+      toast('没有完全同名的条目，请在顶部选一个');
+    } else {
+      toast(res.message, true);
+    }
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+function showCandidates(container, animeId, candidates) {
+  document.querySelector('#candBlock')?.remove();
+
+  const wrap = el('div', 'cand-block');
+  wrap.id = 'candBlock';
+  wrap.appendChild(el('div', 'cand-title', '选一个匹配的条目，会补上封面、集数、简介'));
+
+  for (const c of candidates) {
+    const row = el('button', 'cand-row');
+    row.type = 'button';
+
+    const thumb = el('div', 'cand-thumb');
+    if (c.coverUrl) {
+      const img = document.createElement('img');
+      img.src = c.coverUrl;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.onerror = () => img.remove();
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = firstChar(c.title);
+    }
+
+    const info = el('div', 'cand-info');
+    info.appendChild(el('div', 'cand-name', c.title));
+    info.appendChild(
+      el(
+        'div',
+        'cand-sub',
+        [
+          c.year,
+          c.episodes ? `${c.episodes} 集` : null,
+          c.source === 'bangumi' ? 'Bangumi' : 'AniList'
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      )
+    );
+
+    row.appendChild(thumb);
+    row.appendChild(info);
+
+    row.addEventListener('click', async () => {
+      row.disabled = true;
+      try {
+        const r = await api(`/api/anime/${animeId}/enrich`, {
+          method: 'POST',
+          body: { source: c.source, external_id: c.externalId }
+        });
+        toast(r.filled.length ? `已补全：${r.filled.join('、')}` : '已绑定，没有可补的字段');
+        renderDrawer(await api(`/api/anime/${animeId}`));
+        load();
+      } catch (err) {
+        toast(err.message, true);
+        row.disabled = false;
+      }
+    });
+    wrap.appendChild(row);
+  }
+
+  const cancel = el('button', 'link-btn', '不用了');
+  cancel.type = 'button';
+  cancel.addEventListener('click', () => wrap.remove());
+  wrap.appendChild(cancel);
+
+  container.insertBefore(wrap, container.firstChild);
+  wrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 /* ---------------- 集数管理 ---------------- */
@@ -811,7 +980,12 @@ function setupSearchBox() {
   };
 
   const pick = async (item) => {
-    state.picked = { source: item.source, externalId: item.externalId };
+    // remoteCoverUrl 是数据源的原始地址，入库用它；coverUrl 是本地代理地址，只用于显示
+    state.picked = {
+      source: item.source,
+      externalId: item.externalId,
+      coverUrl: item.remoteCoverUrl || ''
+    };
 
     const titleEl = $('#f_title');
     if (titleEl) titleEl.value = item.title || '';
@@ -832,6 +1006,7 @@ function setupSearchBox() {
       if (tagInput && !tagInput.value.trim() && Array.isArray(d.tags) && d.tags.length > 0) {
         tagInput.value = d.tags.join(', ');
       }
+      if (!state.picked.coverUrl && d.coverUrl) state.picked.coverUrl = d.coverUrl;
       const bits = [
         `已选择：${d.title || item.title}`,
         `（${d.source === 'bangumi' ? 'Bangumi' : 'AniList'}）`
@@ -993,6 +1168,9 @@ async function submitForm(isEdit) {
       if (state.picked?.episodes) {
         payload.episodes = state.picked.episodes;
       }
+      if (state.picked?.coverUrl) {
+        payload.cover_url = state.picked.coverUrl;
+      }
 
       const created = await api('/api/anime', { method: 'POST', body: payload });
       closeForm();
@@ -1026,6 +1204,7 @@ function bindEvents() {
   });
 
   $('#addBtn').addEventListener('click', () => openForm(null));
+  $('#enrichAllBtn').addEventListener('click', enrichAll);
   $('#drawerClose').addEventListener('click', closeDrawer);
   $('#modalClose').addEventListener('click', closeForm);
   $('#scrim').addEventListener('click', closeDrawer);

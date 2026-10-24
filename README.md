@@ -168,6 +168,7 @@ tools/
 | GET | `/api/anime/:id/episodes` | 季集列表与进度（含 `has_gap` 跳看标记、时长统计） |
 | PUT | `/api/anime/:id/episodes` | 设定总集数，自动建集；缩集时不删已观看的集 |
 | POST | `/api/anime/:id/progress` | `action: next / prev / set`，推进或设置进度 |
+| POST | `/api/anime/:id/enrich` | 补全封面/集数/简介/标签；带 `source` + `external_id` 时为手动绑定 |
 | POST | `/api/episodes/:id/watch` | 单集标记，`{ watched, date? }`；不传日期即当天 |
 | GET | `/api/tags` | 全部标签 |
 | GET | `/api/search?keyword=` | 双源搜索联想（Bangumi 优先，AniList 补充） |
