@@ -4,8 +4,10 @@
 
 仓库：<https://github.com/shiyouri19/ciyuan-kedu>
 
-当前状态：**阶段 0–2 完成**；**搜索联想**（原属阶段 5 的一部分）已提前实现。
-观看记录、统计、本地文件扫描**尚未实现**。
+当前状态：**阶段 0–3 完成**；**搜索联想**（原属阶段 5 的一部分）已提前实现。
+统计页、本地文件扫描**尚未实现**。
+
+已能日常使用的闭环：搜番 → 自动建季度集数 → 列表上点 `+1` 记一集 → 详情里逐集调整。
 
 ---
 
@@ -71,7 +73,7 @@ node --disable-warning=ExperimentalWarning server/index.js
 node --disable-warning=ExperimentalWarning --test
 ```
 
-或 `npm test`。当前 57 个用例，覆盖：
+或 `npm test`。当前 83 个用例，覆盖：
 
 - **迁移**：首次应用、幂等重复执行、失败回滚、外键约束、跨进程持久化
 - **作品**：创建/更新/软删除、标题必填与长度、年份与类型与评分越界、状态 CHECK 约束
@@ -80,6 +82,8 @@ node --disable-warning=ExperimentalWarning --test
 - **归档**：影响评估不改数据、归档后评分备注标签保留、可恢复、重复恢复幂等
 - **集数**：同季 `episode_key` 唯一、跨季可重复
 - **观看状态**：重复标记不重复计数、不漂移日期、取消清空日期、显式修正日期、批量幂等
+- **季集管理**：建集/扩集幂等、缩集只删未观看的、已观看的集在缩集时保留
+- **进度**：`+1` 补最小未看集（跳看后仍正确）、`-1` 撤销最后已看集、`看到第 N 集` 只补不删、缺口检测
 - **统计**：未知时长计入集数不计入时长、集级时长优先于作品默认值
 - **接口**：新建 201 / 校验 400 带字段 / 坏 JSON 400 / 404 / 405 / 路径穿越拒绝 / 归档恢复全流程
 
@@ -112,17 +116,25 @@ server/
 ├── config.js                配置加载（config.json，缺失时用默认值）
 ├── http.js                  路由、请求体解析、静态文件、统一错误响应
 ├── errors.js                ValidationError / NotFoundError / ConflictError
+├── net.js                   代理隧道（手写 CONNECT）+ 超时控制
 ├── db/
 │   ├── index.js             开库、迁移调度、事务包装、checkpoint
 │   ├── migrate.js           版本化迁移执行器（PRAGMA user_version）
 │   └── migrations/
-│       └── 001_init.sql     首批 8 张表
+│       ├── 001_init.sql     首批 8 张表
+│       └── 002_external_ids.sql  多源外部 ID 关联
+├── providers/               外部数据源适配，输出统一 DTO
+│   ├── bangumi.js
+│   └── anilist.js
 ├── repositories/            只做数据访问，不含业务规则
-│   ├── anime.js             作品 + 个人状态
+│   ├── anime.js             作品 + 个人状态 + 外部 ID
 │   ├── episode.js           季 + 集 + 观看状态 + 统计
 │   └── meta.js              标签 + 设置
 └── services/                业务规则与校验，事务边界在这一层
-    └── animeService.js      录入、更新、改状态、标签、归档评估、列表筛选排序
+    ├── animeService.js      录入、更新、改状态、标签、归档评估、列表筛选排序
+    ├── episodeService.js    建集、改集数、+1/-1、看到第 N 集、进度推导
+    ├── searchService.js     双源搜索与缓存、探测
+    └── coverService.js      封面转发与落盘缓存
 web/
 ├── index.html               列表 / 详情抽屉 / 表单
 ├── style.css
@@ -131,8 +143,11 @@ tests/
 ├── migrate.test.js
 ├── repositories.test.js
 ├── service.test.js
+├── episode.test.js
 ├── api.test.js
 └── http.test.js
+tools/
+└── uiprobe.mjs              CDP 驱动无头浏览器截图，用于界面验收
 ```
 
 ## 接口
@@ -150,6 +165,10 @@ tests/
 | GET | `/api/anime/:id/archive-check` | 归档影响评估 |
 | POST | `/api/anime/:id/archive` | 软归档 |
 | POST | `/api/anime/:id/restore` | 恢复归档 |
+| GET | `/api/anime/:id/episodes` | 季集列表与进度（含 `has_gap` 跳看标记、时长统计） |
+| PUT | `/api/anime/:id/episodes` | 设定总集数，自动建集；缩集时不删已观看的集 |
+| POST | `/api/anime/:id/progress` | `action: next / prev / set`，推进或设置进度 |
+| POST | `/api/episodes/:id/watch` | 单集标记，`{ watched, date? }`；不传日期即当天 |
 | GET | `/api/tags` | 全部标签 |
 | GET | `/api/search?keyword=` | 双源搜索联想（Bangumi 优先，AniList 补充） |
 | GET | `/api/source-status` | 两个数据源当前是否可达、走哪个代理 |
@@ -215,9 +234,10 @@ tests/
 
 ## 已知未实现
 
-- **季 / 集管理界面**（数据表已就绪，接口未开放）
-- **观看记录标记**：列表内一键 `+1`、键盘快捷键、批量标记、撤销
-- 统计页（年度/季度、时长估算）
+- **键盘快捷键**（`+` / `-` 记集）、批量标记
+- 多季拆分（目前只建一个「本篇」季，SP/OVA 字段已留）
+- 修改某集的观看日期（后端 `correctFirstWatchedAt` 已就绪，界面未开放）
+- 统计页（年度/季度、时长汇总）
 - 本地文件扫描与文件名匹配（对应「扫描本机视频自动入库」）
 - 播放器调用与进度上报
 - 备份 / 恢复的用户操作入口（底层 checkpoint 已就绪）

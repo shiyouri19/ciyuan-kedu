@@ -113,6 +113,82 @@ function renderTabs() {
   }
 }
 
+function formatMinutes(m) {
+  const n = Number(m) || 0;
+  if (n < 60) return `${n} 分钟`;
+  const h = Math.floor(n / 60);
+  const rest = n % 60;
+  return rest ? `${h} 小时 ${rest} 分钟` : `${h} 小时`;
+}
+
+/**
+ * 卡片底部的进度条与 +1。
+ * 「看到 N/M」用 current（已看的最大集号），不是已看集数——
+ * 跳看时才不会显示成「看到 8」而其实是看到 12 集。
+ */
+function cardProgressEl(item) {
+  const total = Number(item.episode_total ?? 0);
+  const watched = Number(item.episode_watched ?? 0);
+  const current = Number(item.episode_current ?? 0);
+
+  const wrap = el('div', 'card-progress');
+
+  if (total <= 0) {
+    wrap.classList.add('untracked');
+    wrap.appendChild(el('span', '', '未设集数'));
+    const btn = el('button', 'set-count-btn', '去设置');
+    btn.type = 'button';
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await openDetail(item.id);
+      const input = $('#epCountInput');
+      if (input) {
+        input.focus();
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    });
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  const bar = el('div', 'progress-bar');
+  const fill = el('div', 'progress-fill');
+  fill.style.width = `${Math.round((watched / total) * 100)}%`;
+  bar.appendChild(fill);
+  wrap.appendChild(bar);
+
+  wrap.appendChild(
+    el('span', 'progress-text', current > 0 ? `看到 ${current}/${total}` : `共 ${total} 集`)
+  );
+
+  const done = watched >= total;
+  const bump = el('button', 'card-bump' + (done ? ' done' : ''), done ? '✓' : '+1');
+  bump.type = 'button';
+  bump.disabled = done;
+  // 不写「第 N 集」——跳看时下一个要补的未必是 current+1，写死会误导
+  bump.title = done ? '已看完' : '记一集（补下一个还没看的）';
+
+  bump.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    bump.disabled = true;
+    try {
+      const res = await api(`/api/anime/${item.id}/progress`, {
+        method: 'POST',
+        body: { action: 'next' }
+      });
+      if (res.at_end) toast('已经看完了');
+      else if (res.changed) toast(`第 ${res.changed.episode_number} 集已记`);
+      await load();
+    } catch (err) {
+      toast(err.message, true);
+      bump.disabled = false;
+    }
+  });
+  wrap.appendChild(bump);
+
+  return wrap;
+}
+
 function cardEl(item) {
   const card = el('div', 'card');
   card.tabIndex = 0;
@@ -137,6 +213,8 @@ function cardEl(item) {
   meta.appendChild(el('span', '', item.release_year ? String(item.release_year) : '年份待补'));
   meta.appendChild(el('span', '', TYPE_LABEL[item.anime_type] ?? '—'));
   body.appendChild(meta);
+
+  body.appendChild(cardProgressEl(item));
 
   card.appendChild(cover);
   card.appendChild(body);
@@ -267,6 +345,11 @@ function renderDrawer(detail) {
     .join(' · ');
   body.appendChild(fieldBlock('资料', metaNode));
 
+  // 观看进度放在状态之前：这是最高频的操作，不能要滚到底才看见
+  const epHost = el('div', 'field-value');
+  body.appendChild(fieldBlock('观看进度', epHost));
+  loadEpisodesInto(epHost, anime.id);
+
   // 状态
   const statusWrap = el('div', 'status-select');
   for (const [key, label] of Object.entries(STATUS_LABEL)) {
@@ -379,11 +462,6 @@ function renderDrawer(detail) {
   const syn = el('div', 'field-value' + (anime.synopsis ? '' : ' placeholder'), anime.synopsis || '暂无简介');
   body.appendChild(fieldBlock('简介', syn));
 
-  // 集数统计（只读，标记功能属于后续阶段）
-  const counts = el('div', 'field-value');
-  counts.textContent = `季 ${detail.season_count} · 集 ${detail.episode_count} · 已看 ${detail.watched_count}`;
-  body.appendChild(fieldBlock('进度概览', counts));
-
   // 操作
   const actions = el('div', 'drawer-actions');
 
@@ -414,6 +492,177 @@ function renderDrawer(detail) {
   }
 
   body.appendChild(actions);
+}
+
+/* ---------------- 集数管理 ---------------- */
+
+async function loadEpisodesInto(container, animeId) {
+  container.innerHTML = '';
+  container.appendChild(el('div', 'ep-hint', '加载中…'));
+
+  let view;
+  try {
+    view = await api(`/api/anime/${animeId}/episodes`);
+  } catch (err) {
+    container.innerHTML = '';
+    container.appendChild(el('div', 'ep-hint', `集数加载失败：${err.message}`));
+    return;
+  }
+
+  container.innerHTML = '';
+  container.appendChild(renderEpisodeBlock(view));
+}
+
+function renderEpisodeBlock(view) {
+  const p = view.progress;
+  const wrap = el('div', 'ep-block');
+
+  // 摘要
+  const summary = el('div', 'ep-summary');
+  if (p.total === 0) {
+    summary.appendChild(el('span', 'ep-hint', '还没设置集数，设好之后就能一集一集记了'));
+  } else if (p.current > 0) {
+    summary.appendChild(el('strong', '', String(p.current)));
+    summary.appendChild(el('span', 'ep-unit', `/ ${p.total} 集`));
+    const bits = [`已看 ${p.watched} 集`];
+    if (p.has_gap) bits.push(`中间少 ${p.current - p.watched} 集`);
+    if (p.at_end) bits.push('已看完');
+    summary.appendChild(el('span', 'ep-hint', bits.join(' · ')));
+  } else {
+    summary.appendChild(el('span', 'ep-hint', `共 ${p.total} 集，还没开始看`));
+  }
+  wrap.appendChild(summary);
+
+  // 集数网格
+  const mainSeason = view.seasons.find((s) => Number(s.season_number) === 1) ?? view.seasons[0];
+  const eps = mainSeason?.episodes ?? [];
+
+  if (eps.length) {
+    const grid = el('div', 'ep-grid');
+    for (const ep of eps) {
+      const cell = el('button', 'ep-cell' + (ep.is_watched ? ' watched' : ''), String(ep.episode_number));
+      cell.type = 'button';
+      cell.title = ep.is_watched
+        ? ep.first_watched_at
+          ? `已看 · ${ep.first_watched_at}`
+          : '已看 · 日期不详'
+        : '点一下标记为已看';
+      cell.addEventListener('click', async () => {
+        cell.disabled = true;
+        try {
+          await api(`/api/episodes/${ep.id}/watch`, {
+            method: 'POST',
+            body: { watched: !ep.is_watched }
+          });
+          renderDrawer(await api(`/api/anime/${view.anime_id}`));
+          load();
+        } catch (err) {
+          toast(err.message, true);
+          cell.disabled = false;
+        }
+      });
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);
+  }
+
+  const refresh = async () => {
+    renderDrawer(await api(`/api/anime/${view.anime_id}`));
+    load();
+  };
+
+  // 设定总集数
+  const toolbar = el('div', 'ep-toolbar');
+  toolbar.appendChild(el('span', '', '总集数'));
+
+  const countInput = document.createElement('input');
+  countInput.type = 'number';
+  countInput.min = '1';
+  countInput.max = '2000';
+  countInput.id = 'epCountInput';
+  countInput.placeholder = '集';
+  countInput.value = p.total || '';
+  toolbar.appendChild(countInput);
+
+  const saveBtn = el('button', 'btn small', '设定');
+  saveBtn.type = 'button';
+  saveBtn.addEventListener('click', async () => {
+    const n = Number(countInput.value);
+    if (!Number.isInteger(n) || n < 1) {
+      toast('请填一个 1 以上的整数', true);
+      return;
+    }
+    saveBtn.disabled = true;
+    try {
+      const res = await api(`/api/anime/${view.anime_id}/episodes`, {
+        method: 'PUT',
+        body: { count: n }
+      });
+      const bits = [];
+      if (res.created) bits.push(`新增 ${res.created} 集`);
+      if (res.removed) bits.push(`删除 ${res.removed} 集`);
+      if (res.kept_watched) bits.push(`${res.kept_watched} 集已观看，保留未删`);
+      toast(bits.length ? bits.join('，') : '集数没有变化');
+      await refresh();
+    } catch (err) {
+      toast(err.message, true);
+      saveBtn.disabled = false;
+    }
+  });
+  toolbar.appendChild(saveBtn);
+
+  // 看到第 N 集
+  if (p.total > 0) {
+    toolbar.appendChild(el('span', '', '·'));
+    toolbar.appendChild(el('span', '', '看到第'));
+
+    const jumpInput = document.createElement('input');
+    jumpInput.type = 'number';
+    jumpInput.min = '0';
+    jumpInput.max = String(p.total);
+    jumpInput.placeholder = 'N';
+    jumpInput.style.width = '56px';
+    toolbar.appendChild(jumpInput);
+
+    toolbar.appendChild(el('span', '', '集'));
+
+    const jumpBtn = el('button', 'btn small', '记到');
+    jumpBtn.type = 'button';
+    jumpBtn.addEventListener('click', async () => {
+      const n = Number(jumpInput.value);
+      if (!Number.isFinite(n) || n < 0) {
+        toast('集号不对', true);
+        return;
+      }
+      jumpBtn.disabled = true;
+      try {
+        const res = await api(`/api/anime/${view.anime_id}/progress`, {
+          method: 'POST',
+          body: { action: 'set', episode_number: n }
+        });
+        toast(res.marked ? `补记了 ${res.marked} 集` : '这些集已经记过了');
+        await refresh();
+      } catch (err) {
+        toast(err.message, true);
+        jumpBtn.disabled = false;
+      }
+    });
+    toolbar.appendChild(jumpBtn);
+  }
+
+  wrap.appendChild(toolbar);
+
+  // 时长说明：有未知就如实说，不假装统计完整
+  if (p.watched > 0) {
+    const dur = [];
+    if (p.minutes > 0) dur.push(`累计 ${formatMinutes(p.minutes)}`);
+    if (p.missing_duration_count > 0) {
+      dur.push(`${p.missing_duration_count} 集时长未知，未计入`);
+    }
+    if (dur.length) wrap.appendChild(el('div', 'ep-hint', dur.join(' · ')));
+  }
+
+  return wrap;
 }
 
 async function archiveWithConfirm(id) {
@@ -587,7 +836,11 @@ function setupSearchBox() {
         `已选择：${d.title || item.title}`,
         `（${d.source === 'bangumi' ? 'Bangumi' : 'AniList'}）`
       ];
-      if (d.episodes) bits.push(` · 共 ${d.episodes} 集`);
+      if (d.episodes) {
+        // 提交时一并带上，建作品的同时把 1..N 集建好，省掉「建完再设集数」
+        state.picked.episodes = d.episodes;
+        bits.push(` · ${d.episodes} 集`);
+      }
       if (d.tags?.length) bits.push(` · 已填入标签：${d.tags.join('、')}`);
       statusEl.textContent = bits.join('');
     } catch (err) {
@@ -736,6 +989,9 @@ async function submitForm(isEdit) {
       if (state.picked?.source && state.picked?.externalId) {
         payload.source = state.picked.source;
         payload.external_id = state.picked.externalId;
+      }
+      if (state.picked?.episodes) {
+        payload.episodes = state.picked.episodes;
       }
 
       const created = await api('/api/anime', { method: 'POST', body: payload });

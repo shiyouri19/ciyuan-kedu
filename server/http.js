@@ -19,6 +19,13 @@ import {
 import { listTags } from './repositories/meta.js';
 import { searchAll, probeSources, fetchDetail } from './services/searchService.js';
 import { fetchCover } from './services/coverService.js';
+import {
+  getEpisodesView,
+  setEpisodeCount,
+  markEpisode,
+  advanceProgress,
+  setProgress
+} from './services/episodeService.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -234,9 +241,43 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       return json(200, { tags: setTags(db, id, body.tags ?? []) });
     }
 
-    // ---- 归档影响评估 ----
-    m = p.match(/^\/api\/anime\/([^/]+)\/archive-check$/);
+    // ---- 季集列表 ----
+    m = p.match(/^\/api\/anime\/([^/]+)\/episodes$/);
     if (m) {
+      const id = decodeURIComponent(m[1]);
+      if (method === 'GET') return json(200, getEpisodesView(db, id));
+      if (method === 'PUT') {
+        const body = await readJsonBody(req);
+        return json(200, setEpisodeCount(db, id, body.count));
+      }
+      return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
+    }
+
+    // ---- 进度推进（+1 / -1 / 看到第 N 集）----
+    m = p.match(/^\/api\/anime\/([^/]+)\/progress$/);
+    if (m) {
+      if (method !== 'POST') return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
+      const id = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      const action = String(body.action ?? '').trim();
+
+      if (action === 'next') return json(200, advanceProgress(db, id, 1));
+      if (action === 'prev') return json(200, advanceProgress(db, id, -1));
+      if (action === 'set') return json(200, setProgress(db, id, body.episode_number));
+      return sendError(res, 400, 'invalid_action', 'action 需为 next / prev / set');
+    }
+
+    // ---- 单集标记 ----
+    m = p.match(/^\/api\/episodes\/([^/]+)\/watch$/);
+    if (m) {
+      if (method !== 'POST') return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
+      const id = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      return json(200, markEpisode(db, id, body.watched !== false, body.date ?? null));
+    }
+
+    // ---- 归档影响评估 ----
+    m = p.match(/^\/api\/anime\/([^/]+)\/archive-check$/);    if (m) {
       if (method !== 'GET') return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
       return json(200, assessArchive(db, decodeURIComponent(m[1])));
     }
@@ -264,7 +305,8 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       const knownPath =
         /^\/api\/(health|meta|tags|anime|search|source-status|cover)$/.test(p) ||
         /^\/api\/anime\/[^/]+$/.test(p) ||
-        /^\/api\/anime\/[^/]+\/(status|tags|archive-check|archive|restore)$/.test(p) ||
+        /^\/api\/anime\/[^/]+\/(status|tags|archive-check|archive|restore|episodes|progress)$/.test(p) ||
+        /^\/api\/episodes\/[^/]+\/watch$/.test(p) ||
         /^\/api\/external\/[^/]+\/[^/]+$/.test(p);
 
       if (knownPath) {

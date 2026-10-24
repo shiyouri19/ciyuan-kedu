@@ -11,6 +11,7 @@ import {
   listExternals
 } from '../repositories/anime.js';
 import { getOrCreateTag, attachTag, detachTag, listTagsOfAnime } from '../repositories/meta.js';
+import { ensureEpisodes, parseEpisodeCount } from './episodeService.js';
 import { ValidationError, NotFoundError, ConflictError } from '../errors.js';
 
 /** 作品类型白名单，与 DATA_MODEL 一致 */
@@ -176,7 +177,18 @@ function listWithSort(db, { keyword, status, sortBy, order, archived }) {
               a.anime_type, a.cover_path, a.default_episode_duration_minutes,
               a.metadata_status, a.created_at, a.updated_at,
               s.status, s.rating, s.is_favorite,
-              (SELECT COUNT(*) FROM tags t JOIN anime_tags at ON at.tag_id = t.id WHERE at.anime_id = a.id) AS tag_count
+              (SELECT COUNT(*) FROM tags t JOIN anime_tags at ON at.tag_id = t.id WHERE at.anime_id = a.id) AS tag_count,
+              (SELECT COUNT(*) FROM episodes e
+                 JOIN seasons se ON se.id = e.season_id
+                WHERE se.anime_id = a.id AND e.is_special = 0) AS episode_total,
+              (SELECT COUNT(*) FROM episode_watch_state w
+                 JOIN episodes e ON e.id = w.episode_id
+                 JOIN seasons se ON se.id = e.season_id
+                WHERE se.anime_id = a.id AND w.is_watched = 1 AND e.is_special = 0) AS episode_watched,
+              (SELECT MAX(e.episode_number) FROM episode_watch_state w
+                 JOIN episodes e ON e.id = w.episode_id
+                 JOIN seasons se ON se.id = e.season_id
+                WHERE se.anime_id = a.id AND w.is_watched = 1 AND e.is_special = 0) AS episode_current
        FROM anime a
        LEFT JOIN user_anime_state s ON s.anime_id = a.id
        WHERE ${clauses.join(' AND ')}
@@ -231,6 +243,11 @@ export function createAnimeEntry(db, input = {}) {
   const tags = parseTags(input.tags);
   const provider = parseProvider(input.source);
   const externalId = parseExternalId(input.external_id);
+  // 录入时可以直接带集数（搜索选中后从数据源带过来），省掉「建完再设集数」这一步
+  const episodes =
+    input.episodes === null || input.episodes === undefined || input.episodes === ''
+      ? null
+      : parseEpisodeCount(input.episodes);
 
   if (provider && !externalId) throw new ValidationError('指定数据源时必须同时提供外部 ID', 'external_id');
   if (externalId && !provider) throw new ValidationError('提供外部 ID 时必须指定数据源', 'source');
@@ -262,6 +279,10 @@ export function createAnimeEntry(db, input = {}) {
 
     if (provider && externalId) {
       linkExternal(db, anime.id, provider, externalId);
+    }
+
+    if (episodes) {
+      ensureEpisodes(db, anime.id, episodes);
     }
 
     return getAnimeDetail(db, anime.id);
