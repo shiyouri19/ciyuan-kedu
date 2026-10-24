@@ -80,3 +80,52 @@
 ## B-005 观看时间默认取当天
 
 - **状态**：**已定案**，写入 `docs/DECISIONS.md` D-001，不在此处跟踪。
+
+---
+
+## B-006 接入 Dandanplay 作为中文直连搜索源
+
+- **提出**：2026-10-25
+- **动机**：`api.bgm.tv` 在大陆直连不通，虽然开代理或配中转都能解决，但 Dandanplay 国内可直连、中文数据好、且返回**番剧 + 剧集列表**，正好补上「选中后集数存不下来」的缺口。
+- **状态**：等待用户申请开发者凭据（AppId / AppSecret）
+- **申请信息**：项目地址填 `https://github.com/shiyouri19/ciyuan-kedu`，项目类型选「开源项目（非商业）」，平台只勾 Windows + Web（无 Android 端）
+
+### 认证方式（2026-10-25 查官方文档核实）
+
+**签名验证模式**（客户端应用必须用这个，推荐）：
+
+| 请求头 | 值 |
+|---|---|
+| `X-AppId` | 应用 ID |
+| `X-Timestamp` | UTC 秒级 Unix 时间戳 |
+| `X-Signature` | `base64(sha256(AppId + Timestamp + Path + AppSecret))` |
+
+- 拼接顺序 `AppId → Timestamp → Path → AppSecret`，无分隔符，区分大小写
+- `Path` 形如 `/api/v2/search/episodes`，**不含域名、不含 `?` 之后的查询参数**
+- 另有「凭证模式」（`X-AppId` + `X-AppSecret`），仅适用于能保护密钥的服务端，**本项目不用**
+
+**易错点（曾写错）**：不是 `X-AppSignature`，是 `X-Signature`；且 `X-Timestamp` 是必填，漏了会返回 `403 Missing Authentication Headers`。
+
+### 接口分类
+
+| 类型 | 例子 | 认证要求 |
+|---|---|---|
+| 公开接口 | 文件识别、搜索、获取弹幕 | 只需**应用级**认证（签名），不需要用户登录 |
+| 受限接口 | 关注、播放历史、发弹幕 | 还需用户 JWT，**当前暂不开放** |
+
+新申请的应用默认只能访问公开接口。本项目只用检索类公开接口。
+
+### 必须遵守的约束
+
+1. **AppSecret 不得硬编码、不得进仓库**。由用户填入本机 `config.json`（已 gitignore），仓库只留 `config.example.json` 占位。
+2. **必须缓存**。官方建议按 ID/关键词缓存 2–6 小时；热门新番当天 0.5–1 小时，老番 2–7 天。搜索类接口有调用量检测，超常会被限流。
+3. 不得批量抓取、不得下载弹幕库、不得用于商业目的。
+4. 2026-06-25 起启用应用分层与额度管理，需关注所用层级。
+
+### 计划实现
+
+- `server/providers/dandanplay.js`：签名生成 + 搜索 + 文件识别
+- 作为搜索链路的**第一优先级**（国内直连），Bangumi 次之，AniList 兜底
+- 命中后可直接取剧集列表，用于自动建 season / episodes
+
+
