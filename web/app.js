@@ -26,7 +26,9 @@ const state = {
   archived: false,
   currentId: null,
   editingId: null,
-  loading: false
+  loading: false,
+  // 'list' | 'stats'。统计是独立视图，不复用列表的筛选状态
+  view: 'list'
 };
 
 /* ---------------- 网络 ---------------- */
@@ -311,6 +313,8 @@ function renderList() {
 
 async function load() {
   if (state.loading) return;
+  // 统计视图下不重绘列表，避免后台请求把统计页顶掉
+  if (state.view === 'stats') return;
   state.loading = true;
   $('#loading').hidden = false;
 
@@ -866,6 +870,172 @@ function renderEpisodeBlock(view) {
   return wrap;
 }
 
+/* ---------------- 统计 ---------------- */
+
+/** 分钟 → 「3 小时 12 分」。统计里到处要用 */
+function formatHours(minutes) {
+  const m = Math.round(Number(minutes) || 0);
+  if (m <= 0) return '0 分钟';
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  if (h === 0) return `${rest} 分钟`;
+  return rest ? `${h} 小时 ${rest} 分` : `${h} 小时`;
+}
+
+async function switchView(view) {
+  state.view = view;
+  const isStats = view === 'stats';
+
+  $('#list').hidden = isStats;
+  $('#stats').hidden = !isStats;
+  $('#empty').hidden = true;
+  $('#loading').hidden = true;
+  $('.filters').hidden = isStats;
+  $('.searchbox').hidden = isStats;
+  $('#statsBtn').textContent = isStats ? '返回列表' : '统计';
+  if (isStats) $('#stat').textContent = '';
+
+  closeDrawer();
+  if (isStats) await loadStats();
+  else await load();
+}
+
+async function loadStats(year) {
+  const host = $('#stats');
+  host.innerHTML = '<div class="stat-empty">正在统计…</div>';
+
+  try {
+    const s = await api(`/api/stats${year ? `?year=${Number(year)}` : ''}`);
+    renderStats(s);
+  } catch (err) {
+    host.innerHTML = '';
+    host.appendChild(el('div', 'stat-empty', err.message));
+  }
+}
+
+function renderStats(s) {
+  const host = $('#stats');
+  host.innerHTML = '';
+
+  const { year, overview, available_years, unknown_date } = s;
+
+  // 年份切换：有多个年份才显示下拉
+  const head = el('div', 'stats-head');
+  if (available_years.length > 1) {
+    const sel = document.createElement('select');
+    sel.id = 'yearSelect';
+    for (const y of available_years) {
+      const o = document.createElement('option');
+      o.value = String(y.year);
+      o.textContent = `${y.year} 年 · ${y.episodes} 集`;
+      if (y.year === year.year) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => loadStats(sel.value));
+    head.appendChild(sel);
+  } else {
+    head.appendChild(el('div', 'stats-year', `${year.year} 年`));
+  }
+  host.appendChild(head);
+
+  // 年度三个大数
+  const hero = el('div', 'stat-hero');
+  hero.appendChild(heroItem(String(year.episodes), '集'));
+  hero.appendChild(heroItem(formatHours(year.minutes), '累计（标准时长）'));
+  hero.appendChild(heroItem(String(year.anime_count), '部作品'));
+  host.appendChild(hero);
+
+  if (year.episodes > 0) {
+    // 月度柱状图
+    const chart = el('div', 'stat-card');
+    chart.appendChild(el('div', 'stat-card-title', '每月看了多少集'));
+
+    const bars = el('div', 'bars');
+    const max = Math.max(...year.months.map((m) => m.episodes), 1);
+    for (const m of year.months) {
+      const col = el('div', 'bar-col');
+      const track = el('div', 'bar-track');
+      const bar = el('div', 'bar' + (m.episodes === 0 ? ' empty' : ''));
+      bar.style.height = `${(m.episodes / max) * 100}%`;
+      bar.title = `${m.month} 月　${m.episodes} 集${m.minutes > 0 ? `　${formatHours(m.minutes)}` : ''}`;
+      track.appendChild(bar);
+      col.appendChild(track);
+      col.appendChild(el('div', 'bar-label', String(m.month)));
+      bars.appendChild(col);
+    }
+    chart.appendChild(bars);
+    host.appendChild(chart);
+
+    // 季度
+    const qWrap = el('div', 'stat-card');
+    qWrap.appendChild(el('div', 'stat-card-title', '按季度'));
+    const qRow = el('div', 'quarter-row');
+    for (const q of year.quarters) {
+      const box = el('div', 'quarter-box');
+      box.appendChild(el('div', 'quarter-q', `Q${q.quarter}`));
+      box.appendChild(el('div', 'quarter-v', `${q.episodes} 集`));
+      box.appendChild(el('div', 'quarter-sub', q.minutes > 0 ? formatHours(q.minutes) : '—'));
+      qRow.appendChild(box);
+    }
+    qWrap.appendChild(qRow);
+    host.appendChild(qWrap);
+  } else {
+    host.appendChild(
+      el('div', 'stat-card stat-empty', `${year.year} 年还没有观看记录。返回列表，在卡片上按 +1 记一集。`)
+    );
+  }
+
+  // 全库概览
+  const ov = el('div', 'stat-card');
+  ov.appendChild(el('div', 'stat-card-title', '全库'));
+  const grid = el('div', 'ov-grid');
+  grid.appendChild(
+    ovItem(
+      '作品',
+      `${overview.anime_active} 部${overview.anime_archived ? `（另有 ${overview.anime_archived} 部已归档）` : ''}`
+    )
+  );
+  grid.appendChild(ovItem('总集数', `${overview.episodes_total} 集`));
+  grid.appendChild(ovItem('已看', `${overview.watched_episodes} 集`));
+  grid.appendChild(ovItem('累计时长', formatHours(overview.watched_minutes)));
+  ov.appendChild(grid);
+  host.appendChild(ov);
+
+  // 口径说明。这几行不是装饰，是 ACCEPTANCE 明确要求的
+  const notes = el('div', 'stat-notes');
+  notes.appendChild(el('div', '', '· 按每集的「首次观看日期」归入年份和季度，补记去年的番算在去年。'));
+  notes.appendChild(el('div', '', '· 时长 = 已看集数 × 标准单集时长，是估算值，不是实际播放时长。'));
+  if (year.missing_duration_count > 0) {
+    notes.appendChild(
+      el('div', 'stat-warn', `· ${year.year} 年有 ${year.missing_duration_count} 集没有单集时长，只计集数、未计时长。`)
+    );
+  }
+  if (unknown_date.episodes > 0) {
+    notes.appendChild(
+      el(
+        'div',
+        'stat-warn',
+        `· 另有 ${unknown_date.episodes} 集观看日期不详（${formatHours(unknown_date.minutes)}），不归入任何年份。`
+      )
+    );
+  }
+  host.appendChild(notes);
+}
+
+function heroItem(value, label) {
+  const d = el('div', 'stat-hero-item');
+  d.appendChild(el('strong', '', value));
+  d.appendChild(el('span', '', label));
+  return d;
+}
+
+function ovItem(label, value) {
+  const d = el('div', 'ov-item');
+  d.appendChild(el('div', 'ov-label', label));
+  d.appendChild(el('div', 'ov-value', value));
+  return d;
+}
+
 async function archiveWithConfirm(id) {
   try {
     const info = await api(`/api/anime/${id}/archive-check`);
@@ -1208,7 +1378,9 @@ async function submitForm(isEdit) {
       closeForm();
       toast(`已添加「${created.anime.canonical_title}」`);
     }
-    load();
+    // 在统计页点新增后要切回列表，否则新作品看不到
+    if (state.view === 'stats') await switchView('list');
+    else load();
   } catch (err) {
     showFormError(err.message, err.field);
   }
@@ -1236,6 +1408,7 @@ function bindEvents() {
   });
 
   $('#addBtn').addEventListener('click', () => openForm(null));
+  $('#statsBtn').addEventListener('click', () => switchView(state.view === 'stats' ? 'list' : 'stats'));
   $('#enrichAllBtn').addEventListener('click', enrichAll);
   $('#drawerClose').addEventListener('click', closeDrawer);
   $('#modalClose').addEventListener('click', closeForm);

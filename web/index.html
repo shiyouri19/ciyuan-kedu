@@ -13,6 +13,7 @@
     <div class="searchbox">
       <input id="q" type="search" placeholder="搜索番名…" autocomplete="off" spellcheck="false">
     </div>
+    <button id="statsBtn" class="btn" type="button">统计</button>
     <button id="addBtn" class="btn primary">新增作品</button>
   </header>
 
@@ -34,6 +35,7 @@
 
   <main>
     <div id="list" class="grid" aria-live="polite"></div>
+    <section id="stats" class="stats" hidden></section>
     <div id="empty" class="empty" hidden>
       <div class="empty-icon">□</div>
       <p id="emptyTitle">还没有作品</p>

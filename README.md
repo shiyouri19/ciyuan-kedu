@@ -4,8 +4,8 @@
 
 仓库：<https://github.com/shiyouri19/ciyuan-kedu>
 
-当前状态：**阶段 0–3 完成**；**搜索联想**（原属阶段 5 的一部分）已提前实现。
-统计页、本地文件扫描**尚未实现**。
+当前状态：**阶段 0–4 完成**；**搜索联想**（原属阶段 5 的一部分）已提前实现。
+本地文件扫描**尚未实现**。
 
 已能日常使用的闭环：搜番 → 自动建季度集数 → 列表上点 `+1` 记一集 → 详情里逐集调整。
 
@@ -73,7 +73,7 @@ node --disable-warning=ExperimentalWarning server/index.js
 node --disable-warning=ExperimentalWarning --test
 ```
 
-或 `npm test`。当前 83 个用例，覆盖：
+或 `npm test`。当前 99 个用例，覆盖：
 
 - **迁移**：首次应用、幂等重复执行、失败回滚、外键约束、跨进程持久化
 - **作品**：创建/更新/软删除、标题必填与长度、年份与类型与评分越界、状态 CHECK 约束
@@ -84,7 +84,7 @@ node --disable-warning=ExperimentalWarning --test
 - **观看状态**：重复标记不重复计数、不漂移日期、取消清空日期、显式修正日期、批量幂等
 - **季集管理**：建集/扩集幂等、缩集只删未观看的、已观看的集在缩集时保留
 - **进度**：`+1` 补最小未看集（跳看后仍正确）、`-1` 撤销最后已看集、`看到第 N 集` 只补不删、缺口检测
-- **统计**：未知时长计入集数不计入时长、集级时长优先于作品默认值
+- **统计**：按首次观看日期归年、日期不详不归年、季度由月度聚合、未知时长只计集数、归档记录仍计入
 - **接口**：新建 201 / 校验 400 带字段 / 坏 JSON 400 / 404 / 405 / 路径穿越拒绝 / 归档恢复全流程
 
 ---
@@ -133,6 +133,8 @@ server/
 └── services/                业务规则与校验，事务边界在这一层
     ├── animeService.js      录入、更新、改状态、标签、归档评估、列表筛选排序
     ├── episodeService.js    建集、改集数、+1/-1、看到第 N 集、进度推导
+    ├── statsService.js      年度/季度/月度统计，按首次观看日期归类
+    ├── enrichService.js     从数据源补全封面/集数/简介/标签，只填空白
     ├── searchService.js     双源搜索与缓存、探测
     └── coverService.js      封面转发与落盘缓存
 web/
@@ -144,6 +146,7 @@ tests/
 ├── repositories.test.js
 ├── service.test.js
 ├── episode.test.js
+├── stats.test.js
 ├── api.test.js
 └── http.test.js
 tools/
@@ -165,6 +168,7 @@ tools/
 | GET | `/api/anime/:id/archive-check` | 归档影响评估 |
 | POST | `/api/anime/:id/archive` | 软归档 |
 | POST | `/api/anime/:id/restore` | 恢复归档 |
+| GET | `/api/stats?year=` | 年度/季度/月度统计，含日期不详与时长未知的如实报告 |
 | GET | `/api/anime/:id/episodes` | 季集列表与进度（含 `has_gap` 跳看标记、时长统计） |
 | PUT | `/api/anime/:id/episodes` | 设定总集数，自动建集；缩集时不删已观看的集 |
 | POST | `/api/anime/:id/progress` | `action: next / prev / set`，推进或设置进度 |
@@ -238,7 +242,6 @@ tools/
 - **键盘快捷键**（`+` / `-` 记集）、批量标记
 - 多季拆分（目前只建一个「本篇」季，SP/OVA 字段已留）
 - 修改某集的观看日期（后端 `correctFirstWatchedAt` 已就绪，界面未开放）
-- 统计页（年度/季度、时长汇总）
 - 本地文件扫描与文件名匹配（对应「扫描本机视频自动入库」）
 - 播放器调用与进度上报
 - 备份 / 恢复的用户操作入口（底层 checkpoint 已就绪）

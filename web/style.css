@@ -648,6 +648,167 @@ button, input, select, textarea {
 
 .toast.error { background: #791f1f; }
 
+/* ---------- 统计 ---------- */
+
+.stats {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 4px 0 24px;
+}
+
+.stats-head { margin-bottom: 14px; }
+
+.stats-head select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.stats-year {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.stat-hero {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-hero-item {
+  flex: 1 1 150px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-hero-item strong {
+  font-size: 25px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.stat-hero-item span {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.stat-card-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.stat-card.stat-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.bars {
+  display: flex;
+  gap: 5px;
+  height: 130px;
+}
+
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.bar-track {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  background: #f4f4f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bar {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height .25s;
+}
+
+.bar.empty { background: transparent; min-height: 0; }
+
+.bar-label {
+  font-size: 10px;
+  color: var(--faint);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.quarter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.quarter-box {
+  flex: 1 1 80px;
+  background: #fbfbf9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.quarter-q { font-size: 11px; color: var(--faint); }
+
+.quarter-v {
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quarter-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.ov-label { font-size: 11px; color: var(--faint); }
+
+.ov-value {
+  font-size: 14px;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-notes {
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.85;
+  padding: 2px 2px 8px;
+}
+
+.stat-warn { color: #8a6d1f; }
+
 /* ---------- 补全候选 ---------- */
 
 .cand-block {

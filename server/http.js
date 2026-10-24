@@ -27,6 +27,7 @@ import {
   setProgress
 } from './services/episodeService.js';
 import { enrichAnime, applyCandidate } from './services/enrichService.js';
+import { getStats } from './services/statsService.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -194,6 +195,12 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       }
     }
 
+    // ---- 观看统计 ----
+    if (method === 'GET' && p === '/api/stats') {
+      const raw = url.searchParams.get('year');
+      return json(200, getStats(db, { year: raw ? raw : undefined }));
+    }
+
     // ---- 列表 ----
     if (method === 'GET' && p === '/api/anime') {
       const data = searchLibrary(db, {
@@ -317,7 +324,7 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
     if (p.startsWith('/api/')) {
       // 路径存在但方法不对 → 405；路径也不存在 → 404
       const knownPath =
-        /^\/api\/(health|meta|tags|anime|search|source-status|cover)$/.test(p) ||
+        /^\/api\/(health|meta|tags|anime|search|source-status|cover|stats)$/.test(p) ||
         /^\/api\/anime\/[^/]+$/.test(p) ||
         /^\/api\/anime\/[^/]+\/(status|tags|archive-check|archive|restore|episodes|progress|enrich)$/.test(p) ||
         /^\/api\/episodes\/[^/]+\/watch$/.test(p) ||
