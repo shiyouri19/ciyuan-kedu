@@ -742,22 +742,28 @@ function renderEpisodeBlock(view) {
   const mainSeason = view.seasons.find((s) => Number(s.season_number) === 1) ?? view.seasons[0];
   const eps = mainSeason?.episodes ?? [];
 
+  // 日期编辑器挂在这里，点已看的格子时展开
+  const editHost = el('div', 'ep-edit-host');
+
   if (eps.length) {
     const grid = el('div', 'ep-grid');
     for (const ep of eps) {
       const cell = el('button', 'ep-cell' + (ep.is_watched ? ' watched' : ''), String(ep.episode_number));
       cell.type = 'button';
       cell.title = ep.is_watched
-        ? ep.first_watched_at
-          ? `已看 · ${ep.first_watched_at}`
-          : '已看 · 日期不详'
+        ? `${ep.first_watched_at || '日期不详'}　点一下可以改日期`
         : '点一下标记为已看';
       cell.addEventListener('click', async () => {
+        // 已看的格子进入日期编辑，不直接取消——取消是低频操作，别让它误触
+        if (ep.is_watched) {
+          showEpisodeEditor(editHost, view, ep);
+          return;
+        }
         cell.disabled = true;
         try {
           await api(`/api/episodes/${ep.id}/watch`, {
             method: 'POST',
-            body: { watched: !ep.is_watched }
+            body: { watched: true }
           });
           renderDrawer(await api(`/api/anime/${view.anime_id}`));
           load();
@@ -769,6 +775,12 @@ function renderEpisodeBlock(view) {
       grid.appendChild(cell);
     }
     wrap.appendChild(grid);
+    wrap.appendChild(editHost);
+
+    // 已看的格子点击行为变了（改日期而非取消），得说一句，否则没人会发现
+    if (eps.some((e) => e.is_watched)) {
+      wrap.appendChild(el('div', 'ep-hint', '点已看的格子可以改观看日期，或取消已看'));
+    }
   }
 
   const refresh = async () => {
@@ -1034,6 +1046,90 @@ function ovItem(label, value) {
   d.appendChild(el('div', 'ov-label', label));
   d.appendChild(el('div', 'ov-value', value));
   return d;
+}
+
+/** 本地日期 YYYY-MM-DD，不走 toISOString（那是 UTC，晚上会差一天） */
+function localToday() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * 某集的日期编辑条。
+ * 展开在集数网格下方，而不是弹窗——弹窗要定位、要处理点外部关闭，为一行表单不值得。
+ */
+function showEpisodeEditor(host, view, ep) {
+  host.innerHTML = '';
+
+  const box = el('div', 'ep-edit');
+  box.appendChild(el('span', 'ep-edit-label', `第 ${ep.episode_number} 集`));
+
+  const date = document.createElement('input');
+  date.type = 'date';
+  date.value = ep.first_watched_at ?? '';
+  box.appendChild(date);
+
+  const today = el('button', 'link-btn', '今天');
+  today.type = 'button';
+  today.addEventListener('click', () => {
+    date.value = localToday();
+  });
+  box.appendChild(today);
+
+  const unknown = el('button', 'link-btn', '记不清');
+  unknown.type = 'button';
+  unknown.title = '标记为日期不详，不计入任何年份的统计';
+  unknown.addEventListener('click', () => {
+    date.value = '';
+  });
+  box.appendChild(unknown);
+
+  const actions = el('div', 'ep-edit-actions');
+
+  const save = el('button', 'btn small primary', '保存');
+  save.type = 'button';
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    try {
+      await api(`/api/episodes/${ep.id}/watched-at`, {
+        method: 'PUT',
+        body: { date: date.value || null }
+      });
+      toast(date.value ? `已记到 ${date.value}` : '已标记为日期不详');
+      renderDrawer(await api(`/api/anime/${view.anime_id}`));
+      load();
+    } catch (err) {
+      toast(err.message, true);
+      save.disabled = false;
+    }
+  });
+  actions.appendChild(save);
+
+  const unwatch = el('button', 'btn small danger', '取消已看');
+  unwatch.type = 'button';
+  unwatch.addEventListener('click', async () => {
+    unwatch.disabled = true;
+    try {
+      await api(`/api/episodes/${ep.id}/watch`, { method: 'POST', body: { watched: false } });
+      renderDrawer(await api(`/api/anime/${view.anime_id}`));
+      load();
+    } catch (err) {
+      toast(err.message, true);
+      unwatch.disabled = false;
+    }
+  });
+  actions.appendChild(unwatch);
+
+  const close = el('button', 'link-btn', '关闭');
+  close.type = 'button';
+  close.addEventListener('click', () => {
+    host.innerHTML = '';
+  });
+  actions.appendChild(close);
+
+  box.appendChild(actions);
+  host.appendChild(box);
 }
 
 async function archiveWithConfirm(id) {

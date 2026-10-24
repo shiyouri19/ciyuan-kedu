@@ -23,6 +23,7 @@ import {
   getEpisodesView,
   setEpisodeCount,
   markEpisode,
+  setWatchedDate,
   advanceProgress,
   setProgress
 } from './services/episodeService.js';
@@ -284,6 +285,18 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
       return json(200, markEpisode(db, id, body.watched !== false, body.date ?? null));
     }
 
+    // ---- 改某集的观看日期 ----
+    m = p.match(/^\/api\/episodes\/([^/]+)\/watched-at$/);
+    if (m) {
+      if (method !== 'PUT') return sendError(res, 405, 'method_not_allowed', `不支持 ${method}`);
+      const id = decodeURIComponent(m[1]);
+      const body = await readJsonBody(req);
+      if (!('date' in body)) {
+        return sendError(res, 400, 'validation_error', '缺少 date 字段（传 null 表示日期不详）', { field: 'date' });
+      }
+      return json(200, setWatchedDate(db, id, body.date));
+    }
+
     // ---- 补全元数据（封面、集数、简介、标签）----
     // 不带 body 时按已有外部 ID 或同名搜索自动补；带 source + external_id 时绑用户选中的那条
     m = p.match(/^\/api\/anime\/([^/]+)\/enrich$/);
@@ -327,7 +340,7 @@ export function createServer({ db, cfg, schemaVersion, appVersion = '0.1.0' }) {
         /^\/api\/(health|meta|tags|anime|search|source-status|cover|stats)$/.test(p) ||
         /^\/api\/anime\/[^/]+$/.test(p) ||
         /^\/api\/anime\/[^/]+\/(status|tags|archive-check|archive|restore|episodes|progress|enrich)$/.test(p) ||
-        /^\/api\/episodes\/[^/]+\/watch$/.test(p) ||
+        /^\/api\/episodes\/[^/]+\/(watch|watched-at)$/.test(p) ||
         /^\/api\/external\/[^/]+\/[^/]+$/.test(p);
 
       if (knownPath) {

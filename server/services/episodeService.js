@@ -5,6 +5,7 @@ import {
   createEpisode,
   listEpisodes,
   setWatched,
+  correctFirstWatchedAt,
   getWatchState,
   totalWatchedMinutes,
   countWatchedWithoutDuration
@@ -183,6 +184,53 @@ export function markEpisode(db, episodeId, watched, date = null) {
         is_watched: Boolean(watched)
       },
       state: getWatchState(db, episodeId),
+      progress: computeProgress(db, row.anime_id)
+    };
+  });
+}
+
+/**
+ * 改某集的观看日期。**与「标记已看」是两个动作**，不能合并：
+ * - 标记是幂等的，重复点不会改日期（防止日期漂移）
+ * - 改日期是用户显式操作，传什么就写什么
+ *
+ * date 传 null 表示「日期不详」——这类记录不计入任何年份的统计。
+ */
+export function setWatchedDate(db, episodeId, date) {
+  const row = db
+    .prepare(
+      `SELECT e.id, e.episode_number, s.anime_id
+         FROM episodes e JOIN seasons s ON s.id = e.season_id
+        WHERE e.id = ?`
+    )
+    .get(episodeId);
+  if (!row) throw new NotFoundError('这一集不存在');
+
+  const existing = getWatchState(db, episodeId);
+  if (!existing || Number(existing.is_watched) !== 1) {
+    throw new ValidationError('这一集还没标记为已看，先标记再改日期', 'watched');
+  }
+
+  let value = null;
+  if (date !== null && date !== undefined && date !== '') {
+    const s = String(date).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      throw new ValidationError('观看日期格式需为 YYYY-MM-DD', 'date');
+    }
+    // 用 UTC 构造再比对，避开本地时区把 2026-02-30 判成 3 月 2 日的问题
+    const [y, m, d] = s.split('-').map(Number);
+    const probe = new Date(Date.UTC(y, m - 1, d));
+    if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== m - 1 || probe.getUTCDate() !== d) {
+      throw new ValidationError('这个日期不存在', 'date');
+    }
+    value = s;
+  }
+
+  return withTransaction(db, () => {
+    const updated = correctFirstWatchedAt(db, episodeId, value);
+    return {
+      episode: { id: row.id, episode_number: row.episode_number },
+      state: updated,
       progress: computeProgress(db, row.anime_id)
     };
   });

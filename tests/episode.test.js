@@ -10,6 +10,7 @@ import {
   setEpisodeCount,
   getEpisodesView,
   markEpisode,
+  setWatchedDate,
   advanceProgress,
   setProgress,
   computeProgress
@@ -441,6 +442,102 @@ test('ensureEpisodes 不开事务，可以由调用方包在自己的事务里',
     const res = ensureEpisodes(db, anime.id, 6);
     assert.equal(res.created, 6);
     assert.equal(computeProgress(db, anime.id).total, 6);
+  } finally {
+    cleanup();
+  }
+});
+
+/* ---------------- 修改观看日期 ---------------- */
+
+test('改日期：成功写入，且不影响同一作品的其它集', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+    const eps = getEpisodesView(db, anime.id).seasons[0].episodes;
+
+    markEpisode(db, eps[0].id, true, '2025-01-01');
+    markEpisode(db, eps[1].id, true, '2025-01-02');
+
+    const res = setWatchedDate(db, eps[0].id, '2024-06-15');
+    assert.equal(res.state.first_watched_at, '2024-06-15');
+
+    const after = getEpisodesView(db, anime.id).seasons[0].episodes;
+    assert.equal(after[0].first_watched_at, '2024-06-15');
+    assert.equal(after[1].first_watched_at, '2025-01-02', '别的集不能被波及');
+  } finally {
+    cleanup();
+  }
+});
+
+test('改日期：传 null 表示日期不详', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+    const ep = getEpisodesView(db, anime.id).seasons[0].episodes[0];
+
+    markEpisode(db, ep.id, true, '2025-01-01');
+    const res = setWatchedDate(db, ep.id, null);
+
+    assert.equal(res.state.first_watched_at, null);
+    assert.equal(res.state.is_watched, 1, '日期不详仍然是已看');
+  } finally {
+    cleanup();
+  }
+});
+
+test('改日期：格式非法或不存在的日期被拒绝', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+    const ep = getEpisodesView(db, anime.id).seasons[0].episodes[0];
+    markEpisode(db, ep.id, true);
+
+    for (const bad of ['2025/01/01', '2025-1-1', '2025-02-30', '2025-13-01', 'abc']) {
+      assert.throws(() => setWatchedDate(db, ep.id, bad), ValidationError, `应拒绝 ${bad}`);
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test('改日期：还没标记已看的集不能直接改日期', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db);
+    setEpisodeCount(db, anime.id, 12);
+    const ep = getEpisodesView(db, anime.id).seasons[0].episodes[0];
+
+    assert.throws(() => setWatchedDate(db, ep.id, '2025-01-01'), ValidationError);
+  } finally {
+    cleanup();
+  }
+});
+
+test('改日期：不存在的集返回 NotFound', () => {
+  const { db, cleanup } = setup();
+  try {
+    assert.throws(() => setWatchedDate(db, 'nope', '2025-01-01'), NotFoundError);
+  } finally {
+    cleanup();
+  }
+});
+
+test('改日期：统计会跟着变（跨年改正后要能挪动）', () => {
+  const { db, cleanup } = setup();
+  try {
+    const anime = makeAnime(db, { default_episode_duration_minutes: 24 });
+    setEpisodeCount(db, anime.id, 12);
+    const ep = getEpisodesView(db, anime.id).seasons[0].episodes[0];
+
+    markEpisode(db, ep.id, true, '2025-01-01');
+    setWatchedDate(db, ep.id, '2024-03-03');
+
+    const p = computeProgress(db, anime.id);
+    assert.equal(p.watched, 1);
+    assert.equal(p.minutes, 24);
   } finally {
     cleanup();
   }

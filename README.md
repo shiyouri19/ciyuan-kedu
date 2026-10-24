@@ -73,7 +73,7 @@ node --disable-warning=ExperimentalWarning server/index.js
 node --disable-warning=ExperimentalWarning --test
 ```
 
-或 `npm test`。当前 99 个用例，覆盖：
+或 `npm test`。当前 105 个用例，覆盖：
 
 - **迁移**：首次应用、幂等重复执行、失败回滚、外键约束、跨进程持久化
 - **作品**：创建/更新/软删除、标题必填与长度、年份与类型与评分越界、状态 CHECK 约束
@@ -81,7 +81,7 @@ node --disable-warning=ExperimentalWarning --test
 - **列表**：关键词搜索、状态筛选、排序白名单（非法字段拒绝）、归档作品不进列表
 - **归档**：影响评估不改数据、归档后评分备注标签保留、可恢复、重复恢复幂等
 - **集数**：同季 `episode_key` 唯一、跨季可重复
-- **观看状态**：重复标记不重复计数、不漂移日期、取消清空日期、显式修正日期、批量幂等
+- **观看状态**：重复标记不重复计数、不漂移日期、取消清空日期、显式改日期（含日期不详与非法日期）、批量幂等
 - **季集管理**：建集/扩集幂等、缩集只删未观看的、已观看的集在缩集时保留
 - **进度**：`+1` 补最小未看集（跳看后仍正确）、`-1` 撤销最后已看集、`看到第 N 集` 只补不删、缺口检测
 - **统计**：按首次观看日期归年、日期不详不归年、季度由月度聚合、未知时长只计集数、归档记录仍计入
@@ -174,6 +174,7 @@ tools/
 | POST | `/api/anime/:id/progress` | `action: next / prev / set`，推进或设置进度 |
 | POST | `/api/anime/:id/enrich` | 补全封面/集数/简介/标签；带 `source` + `external_id` 时为手动绑定 |
 | POST | `/api/episodes/:id/watch` | 单集标记，`{ watched, date? }`；不传日期即当天 |
+| PUT | `/api/episodes/:id/watched-at` | 单独改观看日期，`{ date }`；传 `null` 表示日期不详 |
 | GET | `/api/tags` | 全部标签 |
 | GET | `/api/search?keyword=` | 双源搜索联想（Bangumi 优先，AniList 补充） |
 | GET | `/api/source-status` | 两个数据源当前是否可达、走哪个代理 |
@@ -241,7 +242,6 @@ tools/
 
 - **键盘快捷键**（`+` / `-` 记集）、批量标记
 - 多季拆分（目前只建一个「本篇」季，SP/OVA 字段已留）
-- 修改某集的观看日期（后端 `correctFirstWatchedAt` 已就绪，界面未开放）
 - 本地文件扫描与文件名匹配（对应「扫描本机视频自动入库」）
 - 播放器调用与进度上报
 - 备份 / 恢复的用户操作入口（底层 checkpoint 已就绪）

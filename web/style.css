@@ -1004,6 +1004,43 @@ button, input, select, textarea {
   color: var(--muted);
 }
 
+/* 日期编辑条：点已看的集时展开在网格下方 */
+.ep-edit-host:empty { display: none; }
+
+.ep-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--accent-soft);
+  border: 1px solid #cfe0f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.ep-edit-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.ep-edit input[type="date"] {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.ep-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  align-items: center;
+}
+
 .ep-toolbar input {
   width: 64px;
   height: 30px;
