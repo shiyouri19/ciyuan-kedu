@@ -1,0 +1,13 @@
+{
+  "dataDir": "E:\\次元刻度",
+  "port": 7345,
+  "proxy": "",
+  "proxyProbe": [
+    "127.0.0.1:7897",
+    "127.0.0.1:7890",
+    "127.0.0.1:10809",
+    "127.0.0.1:1080"
+  ],
+  "bangumiApiBase": "https://api.bgm.tv",
+  "userAgent": "fan-zhang/0.1 (personal anime ledger)"
+}

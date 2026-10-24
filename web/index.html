@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次元刻度 · 我的动画账本</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">次元刻度<span class="brand-sub">动画账本</span></div>
+    <div class="searchbox">
+      <input id="q" type="search" placeholder="搜索番名…" autocomplete="off" spellcheck="false">
+    </div>
+    <button id="addBtn" class="btn primary">新增作品</button>
+  </header>
+
+  <nav class="filters">
+    <div class="tabs" id="tabs"></div>
+    <div class="sortbox">
+      <label for="sort">排序</label>
+      <select id="sort">
+        <option value="updated_at:desc">最近更新</option>
+        <option value="canonical_title:asc">标题 A→Z</option>
+        <option value="release_year:desc">年份新→旧</option>
+        <option value="rating:desc">评分高→低</option>
+      </select>
+    </div>
+  </nav>
+
+  <main>
+    <div id="list" class="grid" aria-live="polite"></div>
+    <div id="empty" class="empty" hidden>
+      <div class="empty-icon">□</div>
+      <p id="emptyTitle">还没有作品</p>
+      <p class="empty-hint" id="emptyHint">点右上角「新增作品」开始记账</p>
+    </div>
+    <div id="loading" class="loading" hidden>载入中…</div>
+  </main>
+
+  <footer class="statusbar">
+    <span id="stat"></span>
+    <span class="statusbar-note">数据保存在本机，断网可用</span>
+  </footer>
+</div>
+
+<aside id="drawer" class="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <span id="drawerTitle">作品详情</span>
+    <button id="drawerClose" class="icon-btn" title="关闭">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div id="scrim" class="scrim" hidden></div>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <span id="modalTitle">新增作品</span>
+      <button id="modalClose" class="icon-btn" title="关闭">×</button>
+    </div>
+    <form id="animeForm" class="modal-body"></form>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/app.js" type="module"></script>
+</body>
+</html>

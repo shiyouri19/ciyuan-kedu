@@ -1,0 +1,17 @@
+{
+  "name": "fan-zhang",
+  "version": "0.1.0",
+  "private": true,
+  "description": "次元刻度 · 个人动画观看账本",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test tests/",
+    "test:repos": "node --disable-warning=ExperimentalWarning --test tests/repositories.test.js",
+    "test:http": "node --disable-warning=ExperimentalWarning --test tests/http.test.js"
+  }
+}
