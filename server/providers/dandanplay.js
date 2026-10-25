@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { requestJson } from '../net.js';
 import { normalize } from './bangumi.js';
+import { NotFoundError } from '../errors.js';
 
 const API_BASE = 'https://api.dandanplay.net';
 
@@ -454,6 +455,13 @@ export async function detail(
   });
 
   if (res.status !== 200 || !res.json?.bangumi) {
+    // 番剧 ID 不存在是「查无此条」，不是服务器故障，
+    // 之前抛普通 Error 会被上层统一兜成 500，误导排查方向
+    if (res.status === 404 || res.status === 400 || !res.json?.bangumi) {
+      throw new NotFoundError(
+        res.json?.errorMessage || `弹弹Play 上没有这个番剧条目 (ID ${externalId})`
+      );
+    }
     throw new Error(res.json?.errorMessage || `弹弹Play 详情拉取失败 (HTTP ${res.status})`);
   }
 

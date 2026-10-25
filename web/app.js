@@ -4961,7 +4961,8 @@ async function openSettingsModal() {
               <tr><td>打开「新番导览」任意一季</td><td>番剧详情</td><td><b>1 次</b></td><td>24 小时</td></tr>
               <tr><td>打开「每日放送」周历</td><td>番剧详情</td><td><b>1 次</b></td><td>12 小时</td></tr>
               <tr><td>点开某一部番的详情预览</td><td>番剧详情</td><td><b>每部 1 次</b></td><td>7 天</td></tr>
-              <tr><td>搜索一次番名</td><td>搜索</td><td><b>1 次</b></td><td>24 小时</td></tr>
+              <tr><td>搜索番名（Bangumi 能搜到时）</td><td>—</td><td><b>0 次</b></td><td>—</td></tr>
+              <tr><td>搜索番名（Bangumi 搜不到时才兜底）</td><td>搜索</td><td>1 次</td><td>24 小时</td></tr>
               <tr><td>扫描一部番的本地视频（无文件指纹）</td><td>文件识别</td><td><b>每部 1 次</b></td><td>30 天</td></tr>
               <tr><td>扫描一部番的本地视频（带指纹）</td><td>文件识别</td><td>每个文件 1 次</td><td>30 天</td></tr>
               <tr><td>勾选 50 部批量入库</td><td>—</td><td><b>0 次</b></td><td>不请求</td></tr>
@@ -4971,6 +4972,9 @@ async function openSettingsModal() {
             <b>拉一整季新番只花 1 次</b>：季度番表接口一次返回整季列表，不是逐部去查。
             批量入库也是 0 次——数据在导览那次就已经拿全了，入库只是写本地库。
             真正会累积的是「一个个点开看详情」，每部 1 次、缓存 7 天。
+            <br>
+            <b>搜索默认不花弹弹play 的额度</b>：省流模式先用 Bangumi 查，只有它一条都搜不到时才动用弹弹play 兜底。
+            所以「搜索 100 次/日」这个上限，实际很难被日常搜索碰到。
           </div>
         </details>
       </div>
