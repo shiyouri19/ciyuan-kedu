@@ -38,3 +38,4 @@ desktop.ini
 # 推送日志（本地排障用）
 .push-log.txt
 .compare/
+.commit-msg.txt
