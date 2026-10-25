@@ -470,8 +470,13 @@ export async function seasonal(
   // 查询已放送番剧时，将搜索日期上限截断到今天，避免未来占位词条挤占分页配额
   const effectiveEndDate = !includeUnreleased && endDate > todayIso ? todayIso : endDate;
   const maxItems = Math.min(Math.max(Number(limit) || 180, 1), 220);
-  const pageSize = 50;
-  const maxPages = Math.min(4, Math.ceil(maxItems / pageSize));
+  /**
+   * Bangumi 的 /v0/search/subjects **单页最多只返回 20 条**，limit 传 50 也只给 20。
+   * 之前这里写的是 50，翻页条件又是 `firstPage.data.length >= pageSize`，
+   * 于是 20 >= 50 恒为 false，永远只拉第一页——一季 127 部番只显示 20 部。
+   */
+  const pageSize = 20;
+  const maxPages = Math.min(8, Math.ceil(maxItems / pageSize));
 
   const fetchPage = async (offset) => {
     const res = await requestJson(
@@ -511,7 +516,9 @@ export async function seasonal(
   const totalAvailable = firstPage.total;
   const pagesToFetch = Math.min(maxPages, Math.ceil(totalAvailable / pageSize));
 
-  if (pagesToFetch > 1 && firstPage.data.length >= pageSize) {
+  // 只要第一页有数据就继续翻，不能用 data.length >= pageSize 判断——
+  // 服务端单页上限（20）和我们的 pageSize 一旦对不上，这个条件就永远不成立
+  if (pagesToFetch > 1 && firstPage.data.length > 0) {
     const pageOffsets = [];
     for (let p = 1; p < pagesToFetch; p += 1) {
       pageOffsets.push(p * pageSize);
@@ -530,6 +537,16 @@ export async function seasonal(
   for (const it of rawList) {
     const idStr = String(it?.id ?? '');
     if (!idStr || seenIds.has(idStr)) continue;
+
+    /**
+     * 防御性检查：只保留开播日落在本季度窗口内的条目。
+     *
+     * 注意窗口是按 Bangumi 的档期惯例划的（秋季 = 09-25 ~ 12-24），
+     * 所以 9 月底开播的番出现在秋季导览里是**正常的**，不是混入了夏季番。
+     * 这一步只是为了挡掉 API 万一返回的窗口外数据。
+     */
+    const airDateRaw = String(it?.date ?? '').trim();
+    if (airDateRaw && (airDateRaw < startDate || airDateRaw > effectiveEndDate)) continue;
 
     const broadcastState = inspectBangumiBroadcastState(it, todayIso);
     if (!includeUnreleased && !broadcastState.aired) {
