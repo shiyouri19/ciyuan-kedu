@@ -88,18 +88,20 @@ export const CURATED_CN_CATALOG = [
     tags: ['青春', '校园', '恋爱']
   },
   {
-    externalId: '26105',
+    // Bangumi 真实条目是 537409，放送开始和话数都还是空的（未定档）。
+    // 这条以前写的是 externalId 26105 + airDate 2026-10-10 + episodes 12，
+    // 三个都是编的，结果它顶着「12 集 / 2026-10-10」出现在秋季已开播列表里。
+    externalId: '537409',
     title: '孤独摇滚！第二季',
     titleNative: 'ぼっち・ざ・ろっく！第2期',
     aliases: ['结束乐队2', 'bocchi s2', 'bocchi the rock s2'],
     year: 2026,
     season: 'autumn',
-    airDate: '2026-10-10',
-    episodes: 12,
+    airDate: '',
+    episodes: 0,
     coverUrl: 'https://lain.bgm.tv/pic/cover/l/e2/e7/328609_2EHLJ.jpg',
-    summary:
-      '结束乐队四人在下北泽 STARRY 的演出逐渐积累人气，后藤一里在面对更大的音乐节舞台与新竞争对手时，再次用吉他独奏点燃全场。',
-    score: 9.6,
+    summary: '第二季已公布制作决定，放送日期与话数尚未公开。',
+    score: null,
     tags: ['音乐', '日常', '搞笑']
   },
   {
@@ -697,7 +699,10 @@ export function getCuratedSeasonal(
   const filterByAired = (list) =>
     list.filter((it) => {
       if (includeUnreleased) return true;
-      if (it.airDate && it.airDate > todayIso) return false;
+      // 没有开播日期 = 还没定档。以前这种会被放过去，导致「未定档」的番
+      // 出现在「仅看已开播正片」里（比如孤独摇滚二季）。
+      if (!it.airDate) return false;
+      if (it.airDate > todayIso) return false;
       return true;
     });
 

@@ -5,7 +5,10 @@ import {
   listExternals,
   linkExternal,
   addAlias,
-  getLockedFieldSet
+  getLockedFieldSet,
+  listMetadataFields,
+  setMetadataFieldLock,
+  LOCKABLE_METADATA_FIELDS
 } from '../repositories/anime.js';
 import { getOrCreateTag, attachTag, listTagsOfAnime } from '../repositories/meta.js';
 import { searchAll, fetchDetail } from './searchService.js';
@@ -73,6 +76,27 @@ function resolveBestChineseTitle(info, preferredTitle, currentTitle) {
   return '';
 }
 
+/**
+ * 元数据来源优先级：手动锁定 > Bangumi > 弹弹Play > 其他。
+ *
+ * 规则不是「谁先填谁赢」，而是「谁更权威谁赢」：
+ * 先被弹弹Play 补上的封面，之后 Bangumi 再补时可以覆盖它。
+ * 用户手动改过的字段会被锁成 manual，任何来源都动不了。
+ */
+const SOURCE_RANK = {
+  manual: 100,
+  bangumi: 60,
+  anilist: 50,
+  dandanplay: 40,
+  bilibili: 20,
+  filename: 10,
+  enrich: 30
+};
+
+export function outranks(newSource, currentSource) {
+  return (SOURCE_RANK[String(newSource || '')] ?? 0) > (SOURCE_RANK[String(currentSource || '')] ?? 0);
+}
+
 function applyInfo(
   db,
   anime,
@@ -82,6 +106,23 @@ function applyInfo(
 ) {
   const filled = [];
   const lockedSet = getLockedFieldSet(db, anime.id);
+  const fieldSources = new Map(
+    listMetadataFields(db, anime.id).map((r) => [r.field_key, r.source_provider])
+  );
+
+  /**
+   * 该不该用新值写这个字段。
+   * - 有值但没有来源记录 → 不动（来源不明就当它不可覆盖，保守优先）
+   * - 有新来源且比当前来源权威 → 覆盖（Bangumi 可以盖掉弹弹Play 的封面）
+   */
+  const shouldFill = (field, currentValue, newValue) => {
+    if (!newValue) return false;
+    if (lockedSet.has(field)) return false;
+    if (!currentValue) return true;
+    const cur = fieldSources.get(field);
+    if (!cur) return false;
+    return outranks(source, cur);
+  };
   const curated = lookupCuratedChineseEntry(
     preferredTitle,
     info?.title,
@@ -112,29 +153,42 @@ function applyInfo(
 
     const bestCover = info.remoteCoverUrl || curated?.coverUrl || '';
     if (
-      !lockedSet.has('cover_path') &&
-      bestCover &&
-      (!anime.cover_path ||
-        coverBroken ||
-        (isCandidatePick && anime.cover_path !== bestCover))
+      shouldFill('cover_path', anime.cover_path, bestCover) ||
+      // 封面地址挂了就该换，不管原来是谁给的
+      coverBroken ||
+      // 用户主动点选的候选条目，以他选的为准
+      (isCandidatePick && bestCover && anime.cover_path !== bestCover)
     ) {
       patch.cover_path = bestCover;
       filled.push('封面');
     }
 
     const bestSummary = info.summary || curated?.summary || '';
-    if (!lockedSet.has('synopsis') && !anime.synopsis && bestSummary) {
+    if (shouldFill('synopsis', anime.synopsis, bestSummary)) {
       patch.synopsis = bestSummary;
       filled.push('简介');
     }
 
     const bestYear = info.year || curated?.year || null;
-    if (!lockedSet.has('release_year') && !anime.release_year && bestYear) {
+    if (shouldFill('release_year', anime.release_year, bestYear)) {
       patch.release_year = bestYear;
       filled.push('年份');
     }
 
-    if (Object.keys(patch).length > 0) updateAnime(db, anime.id, patch);
+    if (Object.keys(patch).length > 0) {
+      updateAnime(db, anime.id, patch);
+      // 记住这次是谁写的，下次更低优先级的来源就盖不动它了（is_user_locked 保持 false）
+      if (source) {
+        for (const fieldKey of Object.keys(patch)) {
+          if (LOCKABLE_METADATA_FIELDS.includes(fieldKey)) {
+            setMetadataFieldLock(db, anime.id, fieldKey, {
+              isUserLocked: false,
+              sourceProvider: source
+            });
+          }
+        }
+      }
+    }
 
     if (source && info.externalId) {
       linkExternal(db, anime.id, source, String(info.externalId));
