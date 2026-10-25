@@ -57,7 +57,10 @@ export const DEFAULTS = {
   corsOrigin: process.env.CORS_ORIGIN || '',
   accessToken: process.env.ACCESS_TOKEN || '',
   userAgent: 'fan-zhang/0.5 (personal anime ledger)',
-  seedDemo: false
+  seedDemo: false,
+  // 空闲多少分钟后自动退出服务（0 = 不自动退出）。
+  // 前端页面开着会每 30 秒发心跳，所以关掉网页后开始计时。
+  idleShutdownMinutes: 5
 };
 
 export function loadConfig(overrides = {}) {

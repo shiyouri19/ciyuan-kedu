@@ -6044,6 +6044,17 @@ async function boot() {
   await load();
   handleHash();
   window.addEventListener('hashchange', handleHash);
+
+  /**
+   * 心跳。
+   *
+   * 后端有个空闲超时：一段时间收不到任何请求就自动退出，避免服务长期挂在后台。
+   * 页面开着时靠这个心跳续命，关了页面心跳自然停，服务随后自己收摊。
+   * 失败静默——页面已经关掉或者服务已退出时，这里报错没有意义。
+   */
+  setInterval(() => {
+    api('/api/health').catch(() => {});
+  }, 30000);
 }
 
 boot();

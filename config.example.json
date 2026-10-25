@@ -15,5 +15,6 @@
   "dandanplayStrategy": "economy",
   "dandanplaySafetyRatio": 0.9,
   "accessToken": "",
-  "userAgent": "fan-zhang/0.5 (personal anime ledger)"
+  "userAgent": "fan-zhang/0.5 (personal anime ledger)",
+  "idleShutdownMinutes": 5
 }

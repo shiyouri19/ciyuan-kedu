@@ -109,6 +109,35 @@ const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.ur
 
 const server = createServer({ db, cfg, schemaVersion, appVersion: pkg.version });
 
+/**
+ * 空闲自动退出。
+ *
+ * 前端页面开着时会每 30 秒发一次心跳，所以「关掉网页」= 心跳停 = 计时开始，
+ * 超过 idleShutdownMinutes 没有请求就自己退出，不长期占着后台内存。
+ *
+ * 为什么不做成「关页面立刻退」：页面崩溃、被强杀、开两个标签关掉其中一个，
+ * 都会误伤；而且退出要写 WAL、checkpoint，太频繁没必要。
+ * 设成 0 可以完全关掉这个行为。
+ */
+let lastActivityAt = Date.now();
+server.on('request', () => {
+  lastActivityAt = Date.now();
+});
+
+const idleMinutes = Number(cfg.idleShutdownMinutes ?? 5);
+if (Number.isFinite(idleMinutes) && idleMinutes > 0) {
+  // 检查间隔取阈值的一半（上限 30 秒，下限 5 秒），
+  // 这样超出阈值的延迟最多半个周期，不会出现「说好 5 分钟，10 分钟才退」。
+  const checkEveryMs = Math.min(30000, Math.max(5000, (idleMinutes * 60 * 1000) / 2));
+  const timer = setInterval(() => {
+    if (Date.now() - lastActivityAt >= idleMinutes * 60 * 1000) {
+      console.log(`\n[server] 已空闲 ${idleMinutes} 分钟，自动退出`);
+      shutdown('idle-timeout');
+    }
+  }, checkEveryMs);
+  timer.unref();
+}
+
 try {
   const port = await listenWithFallback(server, PORT, HOST);
   const displayHost = HOST === '0.0.0.0' || HOST === '::' ? '127.0.0.1' : HOST;
