@@ -1646,6 +1646,27 @@ button, input, select, textarea {
   gap: 10px;
 }
 
+/* 配额消耗对照表：折叠，默认收起 */
+.ddp-cost-table {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfbf9;
+  padding: 8px 10px;
+}
+
+.ddp-cost-table > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--accent);
+  user-select: none;
+  list-style: none;
+}
+
+.ddp-cost-table > summary::-webkit-details-marker { display: none; }
+.ddp-cost-table > summary::before { content: '▸ '; }
+.ddp-cost-table[open] > summary::before { content: '▾ '; }
+
 .ddp-quota-table {
   width: 100%;
   border-collapse: collapse;

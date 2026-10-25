@@ -61,18 +61,35 @@ export const DEFAULTS = {
 };
 
 export function loadConfig(overrides = {}) {
-  let user = {};
-  let needsSave = false;
-
-  if (fs.existsSync(CONFIG_PATH)) {
+  /**
+   * 配置可能有两份：
+   * - 项目根 config.json（CONFIG_PATH）——「程序放到哪」
+   * - 数据目录 config.json——「数据放到哪」，saveConfig 会写到这里
+   *
+   * 以前只读项目根那份，而保存写的是数据目录那份，结果是：
+   * 在界面上填的密钥重启后就没了。现在两份都读，数据目录优先，
+   * 但 dataDir 字段以项目根为准（否则两边互相覆盖就定不下来了）。
+   */
+  const readJsonSafe = (p) => {
+    if (!fs.existsSync(p)) return null;
     try {
-      user = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
     } catch (e) {
-      console.warn('[config] config.json 解析失败，改用默认配置:', e.message);
-      needsSave = true;
+      console.warn('[config] 解析失败:', p, e.message);
+      return null;
     }
-  } else {
-    needsSave = true;
+  };
+
+  let user = readJsonSafe(CONFIG_PATH) ?? {};
+  let needsSave = !fs.existsSync(CONFIG_PATH);
+
+  const probeDir = path.resolve(user.dataDir || DEFAULTS.dataDir);
+  const dataCfgPath = path.join(probeDir, 'config.json');
+  if (dataCfgPath !== path.resolve(CONFIG_PATH)) {
+    const dataCfg = readJsonSafe(dataCfgPath);
+    if (dataCfg) {
+      user = { ...user, ...dataCfg, dataDir: user.dataDir || dataCfg.dataDir || DEFAULTS.dataDir };
+    }
   }
 
   // 在非 Windows 环境下自动修正旧版遗留的 Windows 盘符路径（不强行覆写用户端口或代理探测列表）

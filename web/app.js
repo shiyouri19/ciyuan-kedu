@@ -4946,6 +4946,33 @@ async function openSettingsModal() {
           </div>
         </div>
         <div id="ddpQuotaTableHost"></div>
+
+        <details class="ddp-cost-table">
+          <summary>一次操作到底花掉几次配额？</summary>
+          <div class="ep-hint" style="margin:6px 0 8px">
+            官方接口<b>不返回任何配额响应头</b>（实测只有 nginx 标准头），所以下面的计数是本机自己累加的。
+            如果同时在别的客户端用过这个 AppId，数字会偏小，可以用下面的「手动校准」对齐官方面板。
+          </div>
+          <table class="ddp-quota-table">
+            <thead>
+              <tr><th>你的操作</th><th>计数组</th><th>次数</th><th>缓存</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>打开「新番导览」任意一季</td><td>番剧详情</td><td><b>1 次</b></td><td>24 小时</td></tr>
+              <tr><td>打开「每日放送」周历</td><td>番剧详情</td><td><b>1 次</b></td><td>12 小时</td></tr>
+              <tr><td>点开某一部番的详情预览</td><td>番剧详情</td><td><b>每部 1 次</b></td><td>7 天</td></tr>
+              <tr><td>搜索一次番名</td><td>搜索</td><td><b>1 次</b></td><td>24 小时</td></tr>
+              <tr><td>扫描一部番的本地视频（无文件指纹）</td><td>文件识别</td><td><b>每部 1 次</b></td><td>30 天</td></tr>
+              <tr><td>扫描一部番的本地视频（带指纹）</td><td>文件识别</td><td>每个文件 1 次</td><td>30 天</td></tr>
+              <tr><td>勾选 50 部批量入库</td><td>—</td><td><b>0 次</b></td><td>不请求</td></tr>
+            </tbody>
+          </table>
+          <div class="ep-hint" style="margin-top:8px">
+            <b>拉一整季新番只花 1 次</b>：季度番表接口一次返回整季列表，不是逐部去查。
+            批量入库也是 0 次——数据在导览那次就已经拿全了，入库只是写本地库。
+            真正会累积的是「一个个点开看详情」，每部 1 次、缓存 7 天。
+          </div>
+        </details>
       </div>
 
       <div class="form-row">
@@ -5014,12 +5041,22 @@ async function openSettingsModal() {
       <div class="ep-hint">物理备份保存在 <code>backup/</code> 目录并经过完整性校验；恢复前会自动备份当前数据库，防止误操作。</div>
     </div>
 
+    <div class="ep-hint" id="appVersionLine" style="text-align:center;margin:2px 0 10px;color:var(--faint)"></div>
+
     <div class="form-actions">
       <button type="button" class="btn danger" id="shutdownServerBtn" style="margin-right:auto" title="安全保存并停止本机后台运行的 Node 服务进程">退出后台服务</button>
       <button type="button" class="btn ghost" id="formCancel">关闭</button>
       <button type="submit" class="btn primary">保存设置</button>
     </div>
   `;
+
+  // 版本信息：设置弹窗里唯一能看到「我跑的是哪个版本」的地方
+  api('/api/health')
+    .then((h) => {
+      const node = $('#appVersionLine');
+      if (node) node.textContent = `次元刻度 v${h.version} · 数据库架构 v${h.schemaVersion}`;
+    })
+    .catch(() => {});
 
   const renderDdpQuotaTable = (quotaObj) => {
     const host = $('#ddpQuotaTableHost');
