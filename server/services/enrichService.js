@@ -177,15 +177,25 @@ function applyInfo(
 
     if (Object.keys(patch).length > 0) {
       updateAnime(db, anime.id, patch);
-      // 记住这次是谁写的，下次更低优先级的来源就盖不动它了（is_user_locked 保持 false）
-      if (source) {
-        for (const fieldKey of Object.keys(patch)) {
-          if (LOCKABLE_METADATA_FIELDS.includes(fieldKey)) {
-            setMetadataFieldLock(db, anime.id, fieldKey, {
-              isUserLocked: false,
-              sourceProvider: source
-            });
-          }
+      /**
+       * 记录来源，顺带处理两种情况：
+       * - 用户主动点选候选条目 → 这是他的决定，记成 manual 并锁定，
+       *   否则下次 Bangumi 补全会把他挑的封面/标题又改回去
+       * - 封面地址失效被强制替换 → 只记来源不锁定（不是用户选的）
+       */
+      const isUserChoice = Boolean(isCandidatePick);
+      for (const fieldKey of Object.keys(patch)) {
+        if (!LOCKABLE_METADATA_FIELDS.includes(fieldKey)) continue;
+        if (isUserChoice) {
+          setMetadataFieldLock(db, anime.id, fieldKey, {
+            isUserLocked: true,
+            sourceProvider: 'manual'
+          });
+        } else if (source) {
+          setMetadataFieldLock(db, anime.id, fieldKey, {
+            isUserLocked: false,
+            sourceProvider: source
+          });
         }
       }
     }

@@ -2115,7 +2115,20 @@ async function loadSeasonal({ refresh = false } = {}) {
    * 不会多花配额：底层 dandanplay.seasonal() 有自己的 24h 缓存，
    * 第二段请求时直接命中，不会再打官方接口。
    */
-  const wantFastFirst = (state.seasonalSource || 'all') === 'all' && !refresh;
+  /**
+   * 两段式加载只在「首次进入某一季的第一页」时用。
+   *
+   * 翻页、换排序、筛选、搜索都会命中后端 SEASONAL_CACHE，本来就只要几毫秒，
+   * 再跑一遍两段式反而有害：先闪一下弹弹Play 的列表再被合并数据顶掉，
+   * 已经把 seasonalSelected 勾好的条目还会被中途清理。
+   * 另外 economy 省流模式下 source=all 本来不预拉弹弹Play，
+   * 第一段强行请求 source=dandanplay 会白花一次配额。
+   */
+  const wantFastFirst =
+    (state.seasonalSource || 'all') === 'all' &&
+    !refresh &&
+    Number(state.seasonalPage || 1) === 1 &&
+    !state.seasonalKeyword;
 
   if (wantFastFirst) {
     try {

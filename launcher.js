@@ -34,10 +34,28 @@ async function isAlive(port) {
     const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
       signal: AbortSignal.timeout(1200)
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const body = await res.json().catch(() => null);
+    // 认准是自己的服务：7345 可能被别的程序占着，光看端口通不通会误判
+    return body?.app === '次元刻度' || body?.ok === true;
   } catch {
     return false;
   }
+}
+
+/**
+ * 找一个真的在跑的实例。
+ *
+ * server/index.js 在端口被占时会自动顺延（7345 → 7346 → …），
+ * 只盯着配置里那一个端口的话，服务明明起在 7346 也会被判成「启动失败」。
+ */
+async function findRunningPort(preferred) {
+  const candidates = [preferred];
+  for (let p = preferred + 1; p <= preferred + 9; p += 1) candidates.push(p);
+  for (const p of candidates) {
+    if (await isAlive(p)) return p;
+  }
+  return null;
 }
 
 function findBrowser() {
@@ -86,11 +104,12 @@ function tailLog(lines = 12) {
 }
 
 async function main() {
-  const port = readPort();
+  const basePort = readPort();
 
-  // 已经在跑：直接开窗口
-  if (await isAlive(port)) {
-    openWindow(port);
+  // 已经在跑：直接开窗口（可能是顺延到 7346 的实例）
+  const running = await findRunningPort(basePort);
+  if (running) {
+    openWindow(running);
     return;
   }
 
@@ -108,32 +127,32 @@ async function main() {
       detached: true,
       stdio: ['ignore', logStream, logStream],
       windowsHide: true,
-      env: { ...process.env, APP_NO_OPEN: '1' }
+      // 两个变量都传：老代码认 NO_OPEN，新代码两个都认，避免再出现「传了没生效」
+      env: { ...process.env, NO_OPEN: '1', APP_NO_OPEN: '1' }
     }
   );
   child.unref();
 
-  // 轮询等待就绪（首次启动要跑迁移，给足 30 秒）
+  // 轮询等待就绪（首次启动要跑迁移，给足 30 秒）。
+  // 端口可能被占后顺延，所以每轮都扫一段端口，而不是死等 basePort。
   const deadline = Date.now() + 30000;
-  let ready = false;
+  let readyPort = null;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 500));
-    if (await isAlive(port)) {
-      ready = true;
-      break;
-    }
+    readyPort = await findRunningPort(basePort);
+    if (readyPort) break;
     if (child.exitCode !== null && child.exitCode !== 0) break;
   }
 
-  if (ready) {
-    openWindow(port);
+  if (readyPort) {
+    openWindow(readyPort);
     return;
   }
 
   alert(
     '次元刻度 启动失败',
-    `服务没能在 30 秒内就绪（端口 ${port}）。\n\n` +
-      `常见原因：端口被别的程序占用、Node 版本过低、数据库文件损坏。\n\n` +
+    `服务没能在 30 秒内就绪（尝试端口 ${basePort} ~ ${basePort + 9}）。\n\n` +
+      `常见原因：这些端口都被别的程序占用、Node 版本过低、数据库文件损坏。\n\n` +
       `日志：${LOG_FILE}\n\n最近的输出：\n${tailLog()}`
   );
 }

@@ -155,10 +155,10 @@ try {
   console.log('  Ctrl+C 停止服务');
   console.log('');
 
-  const shouldOpen =
-    !process.argv.includes('--no-open') &&
-    process.env.NO_OPEN !== '1' &&
-    process.env.CI !== 'true';
+  // 两个变量名都认：历史上 launcher 传过 APP_NO_OPEN，这里检查的是 NO_OPEN，
+  // 名字对不上就变成「started by launcher 仍然自己开了浏览器」，双击会弹两个窗口。
+  const noOpen = process.env.NO_OPEN === '1' || process.env.APP_NO_OPEN === '1';
+  const shouldOpen = !process.argv.includes('--no-open') && !noOpen && process.env.CI !== 'true';
   const useAppWindow = process.argv.includes('--app-window') || process.env.APP_WINDOW === '1';
   if (shouldOpen) {
     setTimeout(() => {
