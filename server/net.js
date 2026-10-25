@@ -217,7 +217,19 @@ export function requestBuffer(
 
 /* ---------------- 代理探测 ---------------- */
 
+/**
+ * 探测结果缓存。
+ *
+ * 这里**必须有 TTL**。以前是永不过期的 Map，一旦某次探测失败（比如服务启动时代理
+ * 还没起来、或者刚好在一次网络抖动中），就把「直连」这个结论缓存到进程退出为止，
+ * 之后所有请求都直连——用户看到的表现就是「远端源网络受限」，新番导览永远只有几条
+ * 内置数据兜底，而命令行里跑同样的代码却是通的（新进程缓存空）。
+ *
+ * 探到了结果复用久一点，没探到就很快重试：代理恢复后最多 1 分钟自动接上。
+ */
 const proxyCache = new Map();
+const PROXY_HIT_TTL = 10 * 60 * 1000;
+const PROXY_MISS_TTL = 60 * 1000;
 
 /**
  * 为某个目标地址决定用哪个代理。
@@ -225,7 +237,13 @@ const proxyCache = new Map();
  */
 export async function resolveProxy(cfg, testUrl) {
   if (!cfg) return '';
-  if (proxyCache.has(testUrl)) return proxyCache.get(testUrl);
+
+  const cached = proxyCache.get(testUrl);
+  if (cached) {
+    const ttl = cached.value ? PROXY_HIT_TTL : PROXY_MISS_TTL;
+    if (Date.now() - cached.at < ttl) return cached.value;
+    proxyCache.delete(testUrl);
+  }
 
   const candidates = [];
   if (cfg.proxy) candidates.push(cfg.proxy);
@@ -241,7 +259,7 @@ export async function resolveProxy(cfg, testUrl) {
 
   const unique = [...new Set(candidates)].filter(Boolean);
   if (unique.length === 0) {
-    proxyCache.set(testUrl, '');
+    proxyCache.set(testUrl, { value: '', at: Date.now() });
     return '';
   }
 
@@ -256,7 +274,7 @@ export async function resolveProxy(cfg, testUrl) {
   };
 
   const winner = await Promise.any(unique.map(probe)).catch(() => null);
-  proxyCache.set(testUrl, winner ?? '');
+  proxyCache.set(testUrl, { value: winner ?? '', at: Date.now() });
   return winner ?? '';
 }
 
