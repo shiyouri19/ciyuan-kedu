@@ -2796,7 +2796,7 @@ function renderSeasonal() {
     const hint = el(
       'div',
       'ep-hint',
-      '提示：远端源当前网络受限，已自动结合内置精选新番目录展示（可在「设置」配置 Bangumi 镜像、代理或弹弹Play密钥）。'
+      '提示：远端数据源连不上，下面是「内置示例目录」——档期是写死在程序里的，可能与实际不符（还没定档的番也会列出来），不代表真实播出信息。建议先在「设置」里配好代理或 Bangumi 镜像，再点「刷新」拿真实数据。'
     );
     hint.style.marginBottom = '10px';
     host.appendChild(hint);
