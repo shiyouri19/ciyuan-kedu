@@ -1758,3 +1758,36 @@ button, input, select, textarea {
 .hm-cell.lv-4 { background: #185fa5; }
 
 
+
+/* 配额手动校准表 */
+.ddp-cal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.ddp-cal-label {
+  min-width: 68px;
+  font-weight: 500;
+}
+
+.ddp-cal-row label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+}
+
+.ddp-cal-row input {
+  width: 64px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

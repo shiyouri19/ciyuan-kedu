@@ -4837,6 +4837,32 @@ async function drawPreferenceGridCanvas(canvas, gridCells, allAnime) {
 
 /* ---------------- 设置与跨服务器迁移模态框 ---------------- */
 
+/**
+ * 配额手动校准表。
+ * 官方不提供配额查询接口（swagger 里 36 个端点没有 quota 相关），
+ * 本机只能自己数，遇到「别处也用过这个 AppId」或者「某个接口实际扣的次数和预期不符」就会偏。
+ * 唯一可靠的对齐方式：让用户把开放平台面板的数字抄进来。
+ */
+function renderCalibration(quota) {
+  const host = $('#ddpCalHost');
+  if (!host) return;
+  const groups = quota?.groups || [];
+  if (!groups.length) {
+    host.innerHTML = '';
+    return;
+  }
+  host.innerHTML = groups
+    .map(
+      (g) => `
+      <div class="ddp-cal-row">
+        <span class="ddp-cal-label">${escapeHtml(g.label)}</span>
+        <label>当日 <input type="number" min="0" max="${g.dailyLimit}" data-group="${g.key}" data-kind="daily" value="${g.dailyUsed}"></label>
+        <label>当月 <input type="number" min="0" max="${g.monthlyLimit}" data-group="${g.key}" data-kind="monthly" value="${g.monthlyUsed}"></label>
+      </div>`
+    )
+    .join('');
+}
+
 async function loadRuntimeConfig() {
   try {
     const cfg = await api('/api/config');
@@ -4946,6 +4972,16 @@ async function openSettingsModal() {
           </div>
         </div>
         <div id="ddpQuotaTableHost"></div>
+
+        <details class="ddp-cost-table" id="ddpCalBlock">
+          <summary>手动校准（照官方面板的数字填）</summary>
+          <div class="ep-hint" style="margin:6px 0 8px">
+            官方不提供配额查询接口，本机只能自己数，遇到「同时在别处用过这个 AppId」「季度番表实际扣了不止一次」
+            这类情况就会偏。去开放平台的「功能组当前状态」把当天的数字抄进来，一次对齐。
+          </div>
+          <div id="ddpCalHost"></div>
+          <button type="button" class="btn small" id="ddpCalSave" style="margin-top:8px">保存校准</button>
+        </details>
 
         <details class="ddp-cost-table">
           <summary>一次操作到底花掉几次配额？</summary>
@@ -5107,9 +5143,26 @@ async function openSettingsModal() {
         </tbody>
       </table>
     `;
+    renderCalibration(quotaObj);
   };
 
   renderDdpQuotaTable(cfg.dandanplayQuota);
+
+  $('#ddpCalSave')?.addEventListener('click', async () => {
+    const groups = {};
+    for (const input of document.querySelectorAll('#ddpCalHost input')) {
+      const key = input.dataset.group;
+      if (!groups[key]) groups[key] = {};
+      groups[key][input.dataset.kind === 'daily' ? 'dailyUsed' : 'monthlyUsed'] = Number(input.value) || 0;
+    }
+    try {
+      const next = await api('/api/dandanplay/quota', { method: 'PUT', body: { groups } });
+      renderDdpQuotaTable(next);
+      toast('已按官方数字校准本地计数');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
 
   $('#resetDdpQuotaBtn')?.addEventListener('click', async () => {
     try {
