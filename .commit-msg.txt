@@ -1,0 +1,33 @@
+feat: v0.9.0 桌面入口（专属图标 + launcher + 快捷方式）；补 CHANGELOG
+
+## 桌面入口重做
+
+原来的入口脚本里直接调 node 跑服务：node 不在 PATH、端口被占、数据库损坏，
+任何一步出错都是「双击没反应」，没有任何提示，用户只能猜。
+
+新的三层结构：
+
+- 次元刻度.vbs  只做一件事：找 node.exe（注册表 InstallPath → 常见路径含 D/E 盘 → PATH），
+                然后无窗口调用 launcher.js。文件保持纯 ASCII，因为 wscript 按 ANSI
+                解析 .vbs，UTF-8 中文会乱码。
+- launcher.js   真正的启动逻辑：读端口 → 检查是否已运行 → 后台起服务
+                （日志 logs/startup.log）→ 轮询 30 秒等就绪 → 开独立应用窗口 →
+                失败弹中文提示含日志尾部。
+- web/icon.ico  从 icon.svg 渲染 256x256 PNG 再包成 ICO（Vista+ 内嵌 PNG），
+                以前快捷方式用的是 Edge 的图标。
+
+快捷方式：创建桌面快捷方式.vbs 改为同时建桌面 + 开始菜单两个 .lnk，图标指向 icon.ico。
+该脚本用 UTF-16LE + BOM 写出（wscript 的 Unicode 形式），中文不会乱码。
+
+调试用的两个 bat 补上 D:\nodejs、E:\nodejs 的 node 检测。
+
+实测：launcher 正常退出后服务仍存活（detached 生效），端口 7345 继续监听。
+
+## CHANGELOG
+
+按 v0.8 的格式补了 v0.9.0 完整记录，分六节：安全与数据正确性、真 bug 修复、
+新增能力、体验优化、桌面入口、顺带确认的事实。版本总览表也加了行。
+
+版本号 0.8.0 → 0.9.0（package.json / README / health 接口都读它）。
+
+测试 147 项全绿

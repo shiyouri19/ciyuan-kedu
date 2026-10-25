@@ -7,6 +7,8 @@ set "NODE=node"
 where node >nul 2>&1
 if errorlevel 1 (
   if exist "%ProgramFiles%\nodejs\node.exe" set "NODE=%ProgramFiles%\nodejs\node.exe"
+  if exist "D:\nodejs\node.exe" set "NODE=D:\nodejs\node.exe"
+  if exist "E:\nodejs\node.exe" set "NODE=E:\nodejs\node.exe"
 )
 if "%NODE%"=="node" (
   where node >nul 2>&1
