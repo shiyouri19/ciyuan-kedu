@@ -2058,6 +2058,31 @@ const SEASONAL_SOURCE_OPTIONS = [
   { key: 'dandanplay', label: '弹弹Play' }
 ];
 
+/** 把一份 /api/seasonal 的返回应用到界面状态 */
+function applySeasonalPayload(res) {
+  state.seasonalItems = res.data ?? [];
+  state.seasonalPage = res.page ?? 1;
+  state.seasonalMeta = {
+    active_sources: res.active_sources ?? [],
+    fallback_used: Boolean(res.fallback_used),
+    source_errors: res.source_errors ?? {},
+    season_total: Number(res.season_total ?? res.total ?? state.seasonalItems.length),
+    total: Number(res.total ?? state.seasonalItems.length),
+    page: Number(res.page ?? 1),
+    page_size: Number(res.page_size ?? state.seasonalPageSize),
+    total_pages: Number(res.total_pages ?? 1),
+    has_prev: Boolean(res.has_prev),
+    has_next: Boolean(res.has_next)
+  };
+  // 清理已入库条目
+  for (const [k] of state.seasonalSelected.entries()) {
+    const hit = state.seasonalItems.find((it) => `${it.source}:${it.externalId}` === k);
+    if (hit?.in_library) state.seasonalSelected.delete(k);
+    else if (hit) state.seasonalSelected.set(k, hit);
+  }
+  renderSeasonal();
+}
+
 async function loadSeasonal({ refresh = false } = {}) {
   const host = $('#seasonal');
   if (state.seasonalMode === 'calendar') {
@@ -2067,42 +2092,51 @@ async function loadSeasonal({ refresh = false } = {}) {
 
   host.innerHTML = '<div class="loading">正在从数据源获取全量季度新番目录…</div>';
 
-  try {
-    const qs = new URLSearchParams({
-      year: String(state.seasonalYear),
-      season: String(state.seasonalSeason),
-      source: String(state.seasonalSource || 'all'),
-      page: String(state.seasonalPage || 1),
-      pageSize: String(state.seasonalPageSize || 24),
-      filter: String(state.seasonalFilter || 'all'),
-      sort: String(state.seasonalSort || 'default')
-    });
-    if (state.seasonalKeyword) qs.set('keyword', state.seasonalKeyword);
-    if (state.seasonalIncludeUnreleased) qs.set('includeUnreleased', '1');
-    if (refresh) qs.set('refresh', '1');
+  const qs = new URLSearchParams({
+    year: String(state.seasonalYear),
+    season: String(state.seasonalSeason),
+    source: String(state.seasonalSource || 'all'),
+    page: String(state.seasonalPage || 1),
+    pageSize: String(state.seasonalPageSize || 24),
+    filter: String(state.seasonalFilter || 'all'),
+    sort: String(state.seasonalSort || 'default')
+  });
+  if (state.seasonalKeyword) qs.set('keyword', state.seasonalKeyword);
+  if (state.seasonalIncludeUnreleased) qs.set('includeUnreleased', '1');
+  if (refresh) qs.set('refresh', '1');
 
-    const res = await api(`/api/seasonal?${qs.toString()}`);
-    state.seasonalItems = res.data ?? [];
-    state.seasonalPage = res.page ?? 1;
-    state.seasonalMeta = {
-      active_sources: res.active_sources ?? [],
-      fallback_used: Boolean(res.fallback_used),
-      source_errors: res.source_errors ?? {},
-      season_total: Number(res.season_total ?? res.total ?? state.seasonalItems.length),
-      total: Number(res.total ?? state.seasonalItems.length),
-      page: Number(res.page ?? 1),
-      page_size: Number(res.page_size ?? state.seasonalPageSize),
-      total_pages: Number(res.total_pages ?? 1),
-      has_prev: Boolean(res.has_prev),
-      has_next: Boolean(res.has_next)
-    };
-    // 清理已入库条目
-    for (const [k] of state.seasonalSelected.entries()) {
-      const hit = state.seasonalItems.find((it) => `${it.source}:${it.externalId}` === k);
-      if (hit?.in_library) state.seasonalSelected.delete(k);
-      else if (hit) state.seasonalSelected.set(k, hit);
+  /**
+   * 两段式加载。
+   *
+   * 完整请求要等 Bangumi 翻 4 页（走代理时实测 20 秒以上），首屏一直空着很难看。
+   * 弹弹Play 那边是单次请求、1~2 秒就回来，所以先拿它把界面填上，
+   * 再等 Bangumi 的结果替换。
+   *
+   * 不会多花配额：底层 dandanplay.seasonal() 有自己的 24h 缓存，
+   * 第二段请求时直接命中，不会再打官方接口。
+   */
+  const wantFastFirst = (state.seasonalSource || 'all') === 'all' && !refresh;
+
+  if (wantFastFirst) {
+    try {
+      const fastQs = new URLSearchParams(qs);
+      fastQs.set('source', 'dandanplay');
+      const fast = await api(`/api/seasonal?${fastQs.toString()}`);
+      if ((fast.data ?? []).length > 0) {
+        applySeasonalPayload(fast);
+        const tip = el('div', 'ep-hint', '已先显示弹弹Play 的条目，正在补充 Bangumi 数据…');
+        tip.id = 'seasonalFastTip';
+        host.prepend(tip);
+      }
+    } catch {
+      /* 快的那段失败就等完整请求，不打断流程 */
     }
-    renderSeasonal();
+  }
+
+  try {
+    const res = await api(`/api/seasonal?${qs.toString()}`);
+    $('#seasonalFastTip')?.remove();
+    applySeasonalPayload(res);
   } catch (err) {
     host.innerHTML = '';
     host.appendChild(el('div', 'stat-empty', `新番导览加载失败：${err.message}`));
