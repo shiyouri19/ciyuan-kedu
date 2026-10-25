@@ -11,6 +11,7 @@
 - `AI_TASKS.md`：适合 AI 编程助手逐阶段执行的任务书与提示词模板。
 - `AGENT_RULES.md`：AI 编程助手的工作流程、禁止事项、调试重试上限和停止条件。
 - `REFERENCE_RESEARCH.md`：PotatoVN 与 The-Order 的产品参考研究记录模板。
+- `CHANGELOG.md`：v0.1.0 至 v0.8.0 全部阶段（Stages 0–16 & P2）的版本演进与每次改动过程记录。
 
 ## 项目基线
 

@@ -53,11 +53,24 @@ export function closeDatabase(db) {
   }
 }
 
+const txDepth = new WeakMap();
+
 /**
- * 事务包装。任何抛错都回滚，避免留下半完成状态。
+ * 事务包装（支持嵌套重入）。任何抛错都回滚最外层事务，避免留下半完成状态。
  */
 export function withTransaction(db, fn) {
+  const depth = txDepth.get(db) || 0;
+  if (depth > 0) {
+    txDepth.set(db, depth + 1);
+    try {
+      return fn();
+    } finally {
+      txDepth.set(db, depth);
+    }
+  }
+
   db.exec('BEGIN IMMEDIATE');
+  txDepth.set(db, 1);
   try {
     const result = fn();
     db.exec('COMMIT');
@@ -69,5 +82,7 @@ export function withTransaction(db, fn) {
       /* 保留原始错误 */
     }
     throw err;
+  } finally {
+    txDepth.set(db, 0);
   }
 }

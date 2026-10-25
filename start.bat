@@ -1,25 +1,33 @@
+@chcp 65001 >nul
 @echo off
-chcp 65001 >nul
+title 次元刻度 · 个人动画观看账本
 cd /d "%~dp0"
 
-rem 优先使用随包携带的 node.exe，其次用系统 PATH 中的 node
-if exist "%~dp0node.exe" (
-  set "NODE=%~dp0node.exe"
-) else (
-  set "NODE=node"
-)
-
-"%NODE%" --version >nul 2>&1
+set "NODE=node"
+where node >nul 2>&1
 if errorlevel 1 (
-  echo [错误] 未找到 Node.js。
-  echo 请安装 Node.js 22 或以上版本，或把 node.exe 放在本目录下。
-  pause
-  exit /b 1
+  if exist "%ProgramFiles%\nodejs\node.exe" set "NODE=%ProgramFiles%\nodejs\node.exe"
+)
+if "%NODE%"=="node" (
+  where node >nul 2>&1
+  if errorlevel 1 (
+    if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "NODE=%LOCALAPPDATA%\Programs\nodejs\node.exe"
+  )
+)
+if "%NODE%"=="node" (
+  where node >nul 2>&1
+  if errorlevel 1 (
+    if exist "%~dp0node.exe" set "NODE=%~dp0node.exe"
+  )
 )
 
-echo 正在启动次元刻度…
-echo 服务就绪后会自动打开浏览器；若没有自动打开，请手动访问 http://127.0.0.1:7345
+echo 正在启动次元刻度，服务就绪后将自动打开浏览器 (http://127.0.0.1:7345)...
 echo.
-"%NODE%" --disable-warning=ExperimentalWarning server\index.js --open
+"%NODE%" --disable-warning=ExperimentalWarning "%~dp0server\index.js" --open
+if errorlevel 1 (
+  echo.
+  echo [提示] 检测到当前 Node.js 版本可能需要显式开启 --experimental-sqlite 标志，正在重试...
+  "%NODE%" --disable-warning=ExperimentalWarning --experimental-sqlite "%~dp0server\index.js" --open
+)
 
 pause

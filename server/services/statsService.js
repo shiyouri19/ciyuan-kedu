@@ -1,4 +1,5 @@
 import { ValidationError } from '../errors.js';
+import { listWatchEvents } from '../repositories/anime.js';
 
 /**
  * 观看统计。
@@ -30,6 +31,25 @@ function num(v) {
   return Number(v ?? 0);
 }
 
+function computeMaxStreak(dateStrings = []) {
+  if (!Array.isArray(dateStrings) || dateStrings.length === 0) return 0;
+  const sorted = [...new Set(dateStrings)].sort();
+  let maxStreak = 1;
+  let curStreak = 1;
+  for (let i = 1; i < sorted.length; i += 1) {
+    const prev = Date.parse(`${sorted[i - 1]}T00:00:00Z`);
+    const curr = Date.parse(`${sorted[i]}T00:00:00Z`);
+    const diffDays = Math.round((curr - prev) / (24 * 60 * 60 * 1000));
+    if (diffDays === 1) {
+      curStreak += 1;
+      if (curStreak > maxStreak) maxStreak = curStreak;
+    } else if (diffDays > 1) {
+      curStreak = 1;
+    }
+  }
+  return maxStreak;
+}
+
 /** 全库概览：与日期无关的总量 */
 function overviewOf(db) {
   const anime = db
@@ -50,6 +70,15 @@ function overviewOf(db) {
         GROUP BY s.status`
     )
     .all();
+
+  const favRow = db
+    .prepare(
+      `SELECT COUNT(*) AS c
+         FROM user_anime_state s
+         JOIN anime a ON a.id = s.anime_id
+        WHERE a.deleted_at IS NULL AND s.is_favorite = 1`
+    )
+    .get();
 
   const episodes = db
     .prepare(
@@ -75,10 +104,18 @@ function overviewOf(db) {
   const statusMap = {};
   for (const r of byStatus) statusMap[r.status] = num(r.c);
 
+  const animeTotal = num(anime?.total);
+  const animeArchived = num(anime?.archived);
+  const animeActive = animeTotal - animeArchived;
+  const completedCount = num(statusMap.completed);
+  const completionRate = animeActive > 0 ? Math.round((completedCount / animeActive) * 100) : 0;
+
   return {
-    anime_total: num(anime?.total),
-    anime_archived: num(anime?.archived),
-    anime_active: num(anime?.total) - num(anime?.archived),
+    anime_total: animeTotal,
+    anime_archived: animeArchived,
+    anime_active: animeActive,
+    favorite_count: num(favRow?.c),
+    completion_rate: completionRate,
     by_status: statusMap,
     episodes_total: num(episodes?.total),
     episodes_main: num(episodes?.main),
@@ -103,7 +140,7 @@ function availableYears(db) {
     .map((r) => ({ year: Number(r.y), episodes: num(r.c) }));
 }
 
-/** 某一年的汇总 + 月度 + 季度 */
+/** 某一年的汇总 + 月度 + 季度 + Stage 13 每日打卡热力图与连续追番天数 */
 function yearOf(db, year) {
   const y = String(year);
   const range = `AND substr(w.first_watched_at, 1, 4) = ?`;
@@ -135,6 +172,27 @@ function yearOf(db, year) {
     )
     .all(y);
 
+  const dailyRows = db
+    .prepare(
+      `SELECT
+         w.first_watched_at AS d,
+         COUNT(*) AS episodes,
+         COALESCE(SUM(${UNKNOWN_DURATION}), 0) AS minutes
+       ${BASE_FROM}
+        AND w.first_watched_at IS NOT NULL
+        AND length(w.first_watched_at) = 10
+        ${range}
+       GROUP BY w.first_watched_at
+       ORDER BY w.first_watched_at ASC`
+    )
+    .all(y);
+
+  const dailyActivity = dailyRows.map((r) => ({
+    date: r.d,
+    episodes: num(r.episodes),
+    minutes: num(r.minutes)
+  }));
+
   const monthMap = new Map(months.map((r) => [num(r.m), r]));
 
   // 月度：补齐 1..12，没数据的月份是 0，前端才好画柱状图
@@ -164,6 +222,9 @@ function yearOf(db, year) {
     minutes: num(total?.minutes),
     anime_count: num(total?.anime_count),
     missing_duration_count: num(total?.missing_duration),
+    active_days: dailyActivity.length,
+    max_streak_days: computeMaxStreak(dailyActivity.map((d) => d.date)),
+    daily_activity: dailyActivity,
     months: monthList,
     quarters
   };
@@ -189,6 +250,65 @@ function unknownDateOf(db) {
   };
 }
 
+/** P2 高级统计：评分分布、作品类型占比、高频标签 Top 榜与最近观看操作时间轴 */
+function advancedOf(db) {
+  const ratingRows = db
+    .prepare(
+      `SELECT s.rating AS r, COUNT(*) AS c
+         FROM user_anime_state s
+         JOIN anime a ON a.id = s.anime_id
+        WHERE a.deleted_at IS NULL AND s.rating IS NOT NULL
+        GROUP BY s.rating
+        ORDER BY s.rating ASC`
+    )
+    .all();
+
+  const ratingMap = new Map(ratingRows.map((x) => [num(x.r), num(x.c)]));
+  const ratingDistribution = [];
+  let totalScore = 0;
+  let ratedCount = 0;
+  for (let score = 1; score <= 10; score += 1) {
+    const count = ratingMap.get(score) || 0;
+    ratingDistribution.push({ rating: score, count });
+    totalScore += score * count;
+    ratedCount += count;
+  }
+
+  const typeRows = db
+    .prepare(
+      `SELECT COALESCE(a.anime_type, 'other') AS t, COUNT(*) AS c
+         FROM anime a
+        WHERE a.deleted_at IS NULL
+        GROUP BY COALESCE(a.anime_type, 'other')
+        ORDER BY c DESC`
+    )
+    .all()
+    .map((r) => ({ type: r.t, count: num(r.c) }));
+
+  const topTags = db
+    .prepare(
+      `SELECT t.name, COUNT(*) AS c
+         FROM anime_tags at
+         JOIN tags t ON t.id = at.tag_id
+         JOIN anime a ON a.id = at.anime_id
+        WHERE a.deleted_at IS NULL
+        GROUP BY t.id, t.name
+        ORDER BY c DESC, t.name ASC
+        LIMIT 12`
+    )
+    .all()
+    .map((r) => ({ name: r.name, count: num(r.c) }));
+
+  return {
+    rated_count: ratedCount,
+    average_rating: ratedCount > 0 ? Number((totalScore / ratedCount).toFixed(2)) : null,
+    rating_distribution: ratingDistribution,
+    by_type: typeRows,
+    top_tags: topTags,
+    recent_events: listWatchEvents(db, { limit: 20 })
+  };
+}
+
 export function getStats(db, { year } = {}) {
   const years = availableYears(db);
   const overview = overviewOf(db);
@@ -206,6 +326,7 @@ export function getStats(db, { year } = {}) {
     available_years: years,
     latest_year: latest,
     year: yearOf(db, target),
-    unknown_date: unknownDateOf(db)
+    unknown_date: unknownDateOf(db),
+    advanced: advancedOf(db)
   };
 }

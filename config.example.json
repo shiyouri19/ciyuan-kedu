@@ -1,13 +1,19 @@
 {
-  "dataDir": "E:\\次元刻度",
+  "dataDir": "./data",
+  "host": "127.0.0.1",
   "port": 7345,
-  "proxy": "",
-  "proxyProbe": [
-    "127.0.0.1:7897",
-    "127.0.0.1:7890",
-    "127.0.0.1:10809",
-    "127.0.0.1:1080"
+  "corsOrigin": "",
+  "enabledSources": [
+    "dandanplay",
+    "bangumi"
   ],
+  "proxy": "",
+  "proxyProbe": [],
   "bangumiApiBase": "https://api.bgm.tv",
-  "userAgent": "fan-zhang/0.1 (personal anime ledger)"
+  "dandanplayAppId": "",
+  "dandanplayAppSecret": "",
+  "dandanplayStrategy": "economy",
+  "dandanplaySafetyRatio": 0.9,
+  "accessToken": "",
+  "userAgent": "fan-zhang/0.5 (personal anime ledger)"
 }

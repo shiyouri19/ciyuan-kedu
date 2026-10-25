@@ -1,0 +1,83 @@
+违背 -g 项目说明规范、必须回调或修复的问题（高优先级）
+违反数据库迁移不可变原则（会导致旧库升级后报错）
+
+问题位置：server/db/migrations/002_external_ids.sql 第 8 行。
+
+具体原因：README.md 与 AGENT_RULES.md 第 5 节明确规定“不要修改已应用的迁移，结构变更必须新增版本化迁移”。AI Studio 直接修改了已发布的 002_external_ids.sql，将 CHECK (provider IN ('bangumi','anilist')) 改为包含 'bilibili' 和 'dandanplay'。对于已经运行过 -g 版本（数据库 user_version = 2）的存量数据库，002 不会重新执行，用户在前端用 B 站搜番入库时会直接触发 SQLite CHECK constraint failed: provider 崩溃。
+
+调整建议：还原 002_external_ids.sql，新增 003_expand_external_providers.sql 重建或迁移 external_ids 表以放宽 provider 约束，并在 tests/migrate.test.js 补齐 v2 → v3 迁移测试。
+
+强行覆写用户本地配置并清空本地代理探测端口
+
+问题位置：server/config.js 第 39–56 行、start.bat、tools/uiprobe.mjs。
+
+具体原因：loadConfig() 中硬编码了自动改写逻辑——只要检测到 port === 7345 就强行改为 3000 并写盘；只要检测到 proxyProbe 是原版默认的 4 个本地代理端口（127.0.0.1:7897、7890 等）就强行清空为 [] 并覆盖写入 config.json。这不仅直接废掉了 Windows 本地开启 Clash/v2ray 时的自动代理探测能力，还导致 start.bat（仍提示访问 7345 端口）和 tools/uiprobe.mjs（默认连接 7345）不一致。
+
+调整建议：移除 loadConfig() 中强行覆写 7345 端口和清空 proxyProbe 的逻辑，恢复默认端口 7345 与默认本地代理探测端口列表（云端部署通过环境变量 PORT 覆盖即可，不应反向污染本地 config.json）。
+
+违背「本地优先与安全边界」：默认监听 0.0.0.0 且开启全局 CORS: *
+
+问题位置：server/config.js 第 13/19 行、server/index.js 第 30 行、server/http.js 第 55 行。
+
+具体原因：-g 版 README.md 明确要求“服务只监听 127.0.0.1，不对局域网开放”。AI Studio 将默认 HOST 改为 0.0.0.0 且默认开启 Access-Control-Allow-Origin: *。在没有身份鉴权的情况下：
+
+监听 0.0.0.0 会把用户的账本（含 DELETE 删库、/api/config 改代理接口）暴露给同一局域网下的所有设备；
+
+Access-Control-Allow-Origin: * 会允许任意第三方网页通过浏览器跨域请求 [http://127.0.0.1](http://127.0.0.1):端口/api/... 读取或删除本地数据。
+
+调整建议：默认 host 改回 '127.0.0.1'，默认不发送跨域头（或仅在用户显式配置 corsOrigin / 环境变量 HOST 时启用）。
+
+违背核心数据规则：默认填充 24 分钟时长 & 自动篡改观看状态
+
+问题位置：web/app.js 第 336–341 行、第 1656–1658 行。
+
+具体原因：
+
+伪造默认时长：DECISIONS.md D-002 与 DATA_MODEL.md 第 3 节明确规定“不得把未知时长默认为 24 分钟等未经确认的常量”。AI Studio 在新增作品表单中将单集时长默认值改成了 '24'（a.default_episode_duration_minutes ?? (isEdit ? '' : '24')），导致泡面番、剧场版或未填时长的条目全部被按 24 分钟计入统计。
+
+擅自覆盖个人状态：DATA_MODEL.md 第 3 节与 ACCEPTANCE.md 第 4 节规定“作品状态与单集记录不一致时不会静默互相覆盖”。AI Studio 在卡片点击 +1 看完最后一集时，自动调用 /api/anime/:id/status 将作品状态改为 completed（而且如果用户在详情抽屉内点单集格子看完最后一集，又不会触发该逻辑，行为前后矛盾）。
+
+缺失高危删除二次确认：deleteWithConfirm 在换用 askConfirm 时，删掉了原版在 detail.watched_count > 0 时的第二次确认弹窗。
+
+调整建议：将新增表单的 default_episode_duration_minutes 恢复为默认留空（placeholder="可留空，如 24"）；将 +1 满集后的自动改状态改为 Toast 提示或轻量询问；恢复有观看记录作品彻底删除时的二次确认。
+
+首次启动自动向真实数据库注入 4 部示例番剧（污染个人账本）
+
+问题位置：server/db/seed.js、server/index.js 第 52–59 行。
+
+具体原因：首次启动空库时会自动写入《葬送的芙莉莲》等 4 部作品及 58 集 2026 年的观看记录，用户必须手动逐部「彻底删除」才能开始记自己的账。
+
+调整建议：取消启动时无条件自动写入 seed.js，改为仅在传 --seed 参数时执行，或在前端空状态界面提供一个「一键导入示例数据体验」的可选按钮。
+
+三、 新增功能中的代码缺陷与待完善项（中优先级）
+账本导出与导入（exportLibraryData / importLibraryData）存在数据有损
+
+问题位置：server/services/animeService.js 第 444–538 行。
+
+具体缺陷：
+
+归档作品查重漏洞与外部 ID 抢占：第 485 行查重 SQL 写了 WHERE canonical_title = ? AND deleted_at IS NULL。如果本地已有同名但已归档的作品，导入时会绕过查重重复建档，且 linkExternal 的 ON CONFLICT DO UPDATE 会把原归档作品绑定的 external_id 强行抢到新作品名下；
+
+多数据源与单集详情丢失：导入时只取了 entry.externals[0]（丢失其他外部 ID），只传了 episodes: epList.length（丢失特殊集 is_special、单集独立 duration_minutes、单集标题 title 及观看备注 note）；
+
+时间戳失真：恢复已归档作品时调用 archiveAnime()，把历史归档时间篡改成了导入当天的 now()。
+
+调整建议：导入应支持按原始 UUID 或全表标题（含已归档）查重，完整还原 external_ids、各季与单集元数据及原始 created_at / deleted_at 时间戳。
+
+Bilibili 数据源的兜底封面图床与硬编码 Cookie 问题
+
+问题位置：server/providers/bilibili.js 第 13 行、第 19–180 行。
+
+具体缺陷：
+
+CURATED_CN_CATALOG（内置的 12 部兜底番剧）的 coverUrl 全部指向 [https://lain.bgm.tv/](https://lain.bgm.tv/)...，在无代理且触发兜底的场景下，封面依然因请求 Bangumi 图床而加载缓慢或失败；
+
+BILI_HEADERS 硬编码了固定 buvid3 Cookie，长期使用易触发风控。
+
+调整建议：内置兜底目录的封面地址建议改为 B 站图床（i0.hdslb.com）或本地静态占位，Cookie 支持在设置中选填或动态获取。
+
+新增功能零测试覆盖，且 .aistudio 规划功能尚未落地
+
+测试缺口：tests/ 目录下的 7 个测试文件与 -g 版完全一致（0 行新增），AI Studio 新增的 bilibili.js、/api/config、/api/export、/api/import、tag 筛选均无自动化测试覆盖。
+
+未落地计划：.aistudio/artifacts/brain/.../implementation_plan.md 中规划的三个核心特性——B-003 季度新番导览与批量勾选入库（/api/seasonal）、阶段 6–7 媒体文件夹识别与字幕组文件名解析（mediaParser.js）、B-006 弹弹Play签名接入（dandanplay.js）——目前在代码库中均未实现，同时压缩包中还残留了 .aistudio/ 与 metadata.json 等平台临时文件。

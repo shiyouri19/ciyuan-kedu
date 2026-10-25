@@ -1,0 +1,19 @@
+{
+  "name": "次元刻度 · 个人动画观看账本",
+  "short_name": "次元刻度",
+  "description": "个人动画观看账本与分集进度管理工具，支持手机端与电脑端云同步。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f7f5",
+  "theme_color": "#185fa5",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

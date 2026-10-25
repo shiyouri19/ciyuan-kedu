@@ -7,10 +7,10 @@ import { openDatabase } from '../server/db/index.js';
 import { createServer } from '../server/http.js';
 import { createAnime } from '../server/repositories/anime.js';
 
-async function startServer() {
+async function startServer(overrides = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fanzhang-http-'));
   const { db, schemaVersion } = openDatabase(dir);
-  const cfg = { dataDir: dir };
+  const cfg = { dataDir: dir, ...overrides };
   const server = createServer({ db, cfg, schemaVersion });
 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -27,7 +27,7 @@ async function startServer() {
   };
 }
 
-test('健康检查：返回 200 与数据库架构版本', async () => {
+test('健康检查：返回 200 与数据库架构版本，但不泄露本机路径', async () => {
   const s = await startServer();
   try {
     const res = await fetch(`${s.base}/api/health`);
@@ -36,22 +36,58 @@ test('健康检查：返回 200 与数据库架构版本', async () => {
 
     const data = await res.json();
     assert.equal(data.ok, true);
-    assert.equal(data.schemaVersion, 2);
-    assert.equal(data.counts.anime, 0);
-    assert.ok(data.dataDir);
+    assert.equal(data.schemaVersion, 4);
+    // 这个接口在鉴权之前，任何本机网页都能读，所以不能带数据目录和作品数
+    assert.equal(data.dataDir, undefined, '不应暴露数据目录');
+    assert.equal(data.counts, undefined, '不应暴露作品数');
   } finally {
     await s.close();
   }
 });
 
-test('健康检查：作品数随数据库变化', async () => {
+test('健康检查：不随数据库内容变化，不泄露库规模', async () => {
   const s = await startServer();
   try {
     createAnime(s.db, { canonical_title: '接口计数测试' });
-    const data = await (await fetch(`${s.base}/api/health`)).json();
-    assert.equal(data.counts.anime, 1);
+    const raw = await (await fetch(`${s.base}/api/health`)).text();
+    const data = JSON.parse(raw);
+    assert.equal(data.counts, undefined, '不应返回作品数');
+    assert.equal(raw.includes('接口计数测试'), false, '不应泄露库内容');
   } finally {
     await s.close();
+  }
+});
+
+test('安全：设置口令后，无口令不能关闭服务', async () => {
+  const s = await startServer({ accessToken: 'secret-123' });
+  try {
+    // shutdown 曾经在鉴权检查之前，任何本机网页 POST 一下就能把服务关掉
+    const res = await fetch(`${s.base}/api/shutdown`, { method: 'POST' });
+    assert.equal(res.status, 401, '无口令调用 shutdown 必须被拒绝');
+
+    const alive = await fetch(`${s.base}/api/health`);
+    assert.equal(alive.status, 200, '服务应该还活着');
+    assert.equal((await alive.json()).authRequired, true);
+  } finally {
+    await s.close();
+  }
+});
+
+test('安全：默认不发 CORS 通配头，显式配置才发', async () => {
+  const plain = await startServer();
+  try {
+    const res = await fetch(`${plain.base}/api/health`);
+    assert.equal(res.headers.get('access-control-allow-origin'), null, '默认不应有 CORS 头');
+  } finally {
+    await plain.close();
+  }
+
+  const withOrigin = await startServer({ corsOrigin: 'https://example.com' });
+  try {
+    const res = await fetch(`${withOrigin.base}/api/health`);
+    assert.equal(res.headers.get('access-control-allow-origin'), 'https://example.com');
+  } finally {
+    await withOrigin.close();
   }
 });
 

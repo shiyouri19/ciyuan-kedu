@@ -5,7 +5,7 @@
 CREATE TABLE external_ids (
   id              TEXT PRIMARY KEY,
   anime_id        TEXT NOT NULL REFERENCES anime(id) ON DELETE CASCADE,
-  provider        TEXT NOT NULL CHECK (provider IN ('bangumi','anilist')),
+  provider        TEXT NOT NULL CHECK (provider IN ('bilibili','bangumi','anilist')),
   external_id     TEXT NOT NULL,
   external_url    TEXT,
   last_fetched_at TEXT,

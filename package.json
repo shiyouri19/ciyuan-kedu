@@ -1,17 +1,21 @@
 {
   "name": "fan-zhang",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "private": true,
-  "description": "次元刻度 · 个人动画观看账本",
+  "description": "次元刻度 · 个人动画观看账本与桌面独立窗口体验版 (Stage 0-16)",
   "type": "module",
   "main": "server/index.js",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server/index.js",
-    "test": "node --disable-warning=ExperimentalWarning --test tests/",
+    "dev": "node --disable-warning=ExperimentalWarning server/index.js --open",
+    "start": "node --disable-warning=ExperimentalWarning server/index.js --open",
+    "start:headless": "node --disable-warning=ExperimentalWarning server/index.js --no-open",
+    "build": "node --check server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test tests/*.test.js",
     "test:repos": "node --disable-warning=ExperimentalWarning --test tests/repositories.test.js",
-    "test:http": "node --disable-warning=ExperimentalWarning --test tests/http.test.js"
+    "test:http": "node --disable-warning=ExperimentalWarning --test tests/http.test.js",
+    "test:media": "node --disable-warning=ExperimentalWarning --test tests/seasonal_and_media.test.js tests/compliance_and_antipitfall.test.js"
   }
 }

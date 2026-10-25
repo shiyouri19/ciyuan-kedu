@@ -2,24 +2,44 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#185fa5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="次元刻度">
 <title>次元刻度 · 我的动画账本</title>
+<meta name="description" content="个人动画观看账本与分集进度管理工具，支持弹弹Play与 Bangumi 双源中文检索聚合、季度新番全量导览与批量入库、本地媒体识别及跨端云同步。">
+<meta property="og:title" content="次元刻度 · 我的动画账本">
+<meta property="og:description" content="个人动画观看账本与分集进度管理工具，支持弹弹Play与 Bangumi 双源中文检索聚合、季度新番全量导览与批量入库、本地媒体识别及跨端云同步。">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand">次元刻度<span class="brand-sub">动画账本</span></div>
+    <div class="brand" id="brandHome" title="返回我的动画账本">次元刻度<span class="brand-sub">动画账本</span></div>
     <div class="searchbox">
-      <input id="q" type="search" placeholder="搜索番名…" autocomplete="off" spellcheck="false">
+      <input id="q" type="search" placeholder="搜索库内番名…" autocomplete="off" spellcheck="false">
     </div>
+    <button id="seasonalBtn" class="btn" type="button" title="按年份和季度浏览当季新番并批量勾选入库">新番导览</button>
+    <button id="mediaScanBtn" class="btn" type="button" title="选择本地视频文件夹自动清洗字幕组文件名并同步集数">本地识别</button>
     <button id="statsBtn" class="btn" type="button">统计</button>
-    <button id="addBtn" class="btn primary">新增作品</button>
+    <button id="settingsBtn" class="btn" type="button" title="数据源、弹弹Play密钥、云服务器双向同步与数据备份设置">设置</button>
+    <button id="addBtn" class="btn primary" type="button">新增作品</button>
   </header>
 
   <nav class="filters">
     <div class="tabs" id="tabs"></div>
     <div class="filters-right">
+      <div class="sortbox" id="tagFilterWrap" hidden>
+        <label for="tagFilter">标签</label>
+        <select id="tagFilter">
+          <option value="">全部标签</option>
+        </select>
+      </div>
+      <button id="batchManageBtn" class="link-btn" type="button" title="进入批量管理模式，支持多选作品批量修改状态、收藏、追加标签或归档">批量管理</button>
       <button id="enrichAllBtn" class="link-btn" type="button" title="为缺少封面的作品从数据源补齐资料">补全缺失资料</button>
       <div class="sortbox">
         <label for="sort">排序</label>
@@ -34,19 +54,21 @@
   </nav>
 
   <main>
+    <div id="ledgerBatchBar" class="seasonal-bar" hidden style="margin-bottom:14px"></div>
     <div id="list" class="grid" aria-live="polite"></div>
+    <section id="seasonal" class="seasonal-view" hidden></section>
     <section id="stats" class="stats" hidden></section>
     <div id="empty" class="empty" hidden>
       <div class="empty-icon">□</div>
       <p id="emptyTitle">还没有作品</p>
-      <p class="empty-hint" id="emptyHint">点右上角「新增作品」开始记账</p>
+      <p class="empty-hint" id="emptyHint">点右上角「新增作品」或「新番导览」开始记账</p>
     </div>
     <div id="loading" class="loading" hidden>载入中…</div>
   </main>
 
   <footer class="statusbar">
     <span id="stat"></span>
-    <span class="statusbar-note">数据保存在本机，断网可用</span>
+    <span id="serverStatusNote" class="statusbar-note">数据保存在服务端 SQLite，支持随时导出或与云服务器双向同步</span>
   </footer>
 </div>
 
@@ -54,7 +76,7 @@
   <div class="drawer-head">
     <span id="drawerTitle">作品详情</span>
     <div class="drawer-head-actions" id="drawerActions"></div>
-    <button id="drawerClose" class="icon-btn" title="关闭">×</button>
+    <button id="drawerClose" class="icon-btn" type="button" title="关闭">×</button>
   </div>
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
@@ -64,9 +86,25 @@
   <div class="modal-card">
     <div class="modal-head">
       <span id="modalTitle">新增作品</span>
-      <button id="modalClose" class="icon-btn" title="关闭">×</button>
+      <button id="modalClose" class="icon-btn" type="button" title="关闭">×</button>
     </div>
     <form id="animeForm" class="modal-body"></form>
+  </div>
+</div>
+
+<div id="confirmModal" class="modal" hidden>
+  <div class="modal-card confirm-card">
+    <div class="modal-head">
+      <span id="confirmTitle">确认操作</span>
+      <button id="confirmClose" class="icon-btn" type="button" title="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="confirmBody" class="confirm-body"></div>
+      <div class="form-actions">
+        <button id="confirmCancel" class="btn ghost" type="button">取消</button>
+        <button id="confirmOk" class="btn primary" type="button">确认</button>
+      </div>
+    </div>
   </div>
 </div>
 

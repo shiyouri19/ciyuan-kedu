@@ -159,3 +159,178 @@ export function listExternals(db, animeId) {
     .prepare('SELECT provider, external_id, external_url, last_fetched_at FROM external_ids WHERE anime_id = ?')
     .all(animeId);
 }
+
+/* ---------------- 作品别名 (anime_aliases) ---------------- */
+
+export function listAliases(db, animeId) {
+  return db
+    .prepare('SELECT id, anime_id, alias, language, source_provider, created_at FROM anime_aliases WHERE anime_id = ? ORDER BY created_at ASC')
+    .all(animeId);
+}
+
+export function addAlias(db, animeId, alias, { language = null, sourceProvider = 'manual' } = {}) {
+  const clean = String(alias ?? '').trim();
+  if (!clean) return null;
+  const ts = now();
+  db.prepare(
+    `INSERT INTO anime_aliases (id, anime_id, alias, language, source_provider, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(anime_id, alias) DO NOTHING`
+  ).run(randomUUID(), animeId, clean, language, sourceProvider, ts);
+  return db.prepare('SELECT * FROM anime_aliases WHERE anime_id = ? AND alias = ?').get(animeId, clean) ?? null;
+}
+
+export function replaceAliases(db, animeId, aliases = [], sourceProvider = 'manual') {
+  db.prepare('DELETE FROM anime_aliases WHERE anime_id = ?').run(animeId);
+  for (const raw of aliases) {
+    const clean = String(raw ?? '').trim();
+    if (!clean) continue;
+    addAlias(db, animeId, clean, { sourceProvider });
+  }
+  return listAliases(db, animeId);
+}
+
+/* ---------------- 字段来源与手工锁定 (anime_metadata_fields) ---------------- */
+
+export const LOCKABLE_METADATA_FIELDS = [
+  'canonical_title',
+  'sort_title',
+  'synopsis',
+  'release_year',
+  'anime_type',
+  'cover_path',
+  'default_episode_duration_minutes'
+];
+
+export function listMetadataFields(db, animeId) {
+  try {
+    return db
+      .prepare(
+        'SELECT field_key, source_provider, is_user_locked, updated_at FROM anime_metadata_fields WHERE anime_id = ? ORDER BY field_key ASC'
+      )
+      .all(animeId)
+      .map((r) => ({
+        ...r,
+        is_user_locked: Boolean(r.is_user_locked)
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export function getLockedFieldSet(db, animeId) {
+  const rows = listMetadataFields(db, animeId);
+  return new Set(rows.filter((r) => r.is_user_locked).map((r) => r.field_key));
+}
+
+export function setMetadataFieldLock(
+  db,
+  animeId,
+  fieldKey,
+  { isUserLocked = true, sourceProvider = 'manual' } = {}
+) {
+  if (!LOCKABLE_METADATA_FIELDS.includes(fieldKey)) return null;
+  const ts = now();
+  db.prepare(
+    `INSERT INTO anime_metadata_fields (id, anime_id, field_key, source_provider, is_user_locked, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(anime_id, field_key)
+     DO UPDATE SET source_provider = excluded.source_provider,
+                   is_user_locked  = excluded.is_user_locked,
+                   updated_at      = excluded.updated_at`
+  ).run(randomUUID(), animeId, fieldKey, sourceProvider || 'manual', isUserLocked ? 1 : 0, ts);
+  return listMetadataFields(db, animeId);
+}
+
+export function replaceLockedFields(db, animeId, lockedFields = [], sourceProvider = 'manual') {
+  const targetSet = new Set(
+    (Array.isArray(lockedFields) ? lockedFields : []).filter((k) =>
+      LOCKABLE_METADATA_FIELDS.includes(k)
+    )
+  );
+  for (const fieldKey of LOCKABLE_METADATA_FIELDS) {
+    if (targetSet.has(fieldKey)) {
+      setMetadataFieldLock(db, animeId, fieldKey, { isUserLocked: true, sourceProvider });
+    } else {
+      db.prepare('DELETE FROM anime_metadata_fields WHERE anime_id = ? AND field_key = ?').run(
+        animeId,
+        fieldKey
+      );
+    }
+  }
+  return listMetadataFields(db, animeId);
+}
+
+/* ---------------- 观看事件历史时间轴 (watch_events) ---------------- */
+
+export function recordWatchEvent(
+  db,
+  {
+    animeId,
+    episodeId = null,
+    seasonNumber = null,
+    episodeNumber = null,
+    episodeKey = null,
+    eventType = 'watch',
+    watchedDate = null,
+    detail = null
+  } = {}
+) {
+  if (!animeId) return null;
+  try {
+    const id = randomUUID();
+    const ts = now();
+    db.prepare(
+      `INSERT INTO watch_events (
+         id, anime_id, episode_id, season_number, episode_number, episode_key,
+         event_type, watched_date, detail, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      animeId,
+      episodeId,
+      seasonNumber,
+      episodeNumber,
+      episodeKey,
+      eventType,
+      watchedDate,
+      detail,
+      ts
+    );
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+export function listWatchEvents(db, { animeId = null, limit = 30 } = {}) {
+  try {
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 30, 100));
+    if (animeId) {
+      return db
+        .prepare(
+          `SELECT we.*, a.canonical_title
+             FROM watch_events we
+             JOIN anime a ON a.id = we.anime_id
+            WHERE we.anime_id = ?
+            ORDER BY we.created_at DESC, we.rowid DESC
+            LIMIT ?`
+        )
+        .all(animeId, safeLimit);
+    }
+    return db
+      .prepare(
+        `SELECT we.*, a.canonical_title
+           FROM watch_events we
+           JOIN anime a ON a.id = we.anime_id
+          WHERE a.deleted_at IS NULL
+          ORDER BY we.created_at DESC, we.rowid DESC
+          LIMIT ?`
+      )
+      .all(safeLimit);
+  } catch {
+    return [];
+  }
+}
+
+

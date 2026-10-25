@@ -3,12 +3,10 @@ import https from 'node:https';
 import net from 'node:net';
 import tls from 'node:tls';
 
-export const DEFAULT_UA = 'fan-zhang/0.1 (personal anime ledger)';
+export const DEFAULT_UA = 'fan-zhang/0.2 (personal anime ledger)';
 
 /**
  * 走 HTTP 代理访问 HTTPS 的 Agent。
- * Node 的 fetch 不读取 HTTP_PROXY 环境变量，必须自己实现 CONNECT 隧道，
- * 否则在需要代理的网络里所有对外请求都会以「fetch failed」告终，且看不出是代理问题。
  */
 class HttpsProxyAgent extends https.Agent {
   constructor(proxyUrl) {
@@ -33,7 +31,7 @@ class HttpsProxyAgent extends https.Agent {
       callback(err, socket);
     };
 
-    raw.setTimeout(12000, () => {
+    raw.setTimeout(10000, () => {
       raw.destroy();
       finish(new Error('代理连接超时'));
     });
@@ -81,8 +79,11 @@ class HttpsProxyAgent extends https.Agent {
   }
 }
 
-/** 底层请求：默认请求 identity 编码，避免自己解压 gzip */
-export function requestText(url, { method = 'GET', body = null, headers = {}, proxy = '', timeout = 15000 } = {}) {
+/** 底层文本请求（支持最多 3 次 301/302/307/308 重定向跟随） */
+export function requestText(
+  url,
+  { method = 'GET', body = null, headers = {}, proxy = '', timeout = 12000, redirectsLeft = 3 } = {}
+) {
   return new Promise((resolve, reject) => {
     let u;
     try {
@@ -109,11 +110,28 @@ export function requestText(url, { method = 'GET', body = null, headers = {}, pr
     if (isHttps && proxy) opts.agent = new HttpsProxyAgent(proxy);
 
     const req = mod.request(opts, (res) => {
+      const code = res.statusCode ?? 0;
+      if ([301, 302, 303, 307, 308].includes(code) && res.headers.location && redirectsLeft > 0) {
+        res.resume();
+        const nextUrl = new URL(res.headers.location, u).toString();
+        const nextMethod = code === 303 ? 'GET' : method;
+        const nextBody = code === 303 ? null : body;
+        requestText(nextUrl, {
+          method: nextMethod,
+          body: nextBody,
+          headers,
+          proxy,
+          timeout,
+          redirectsLeft: redirectsLeft - 1
+        }).then(resolve, reject);
+        return;
+      }
+
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
         resolve({
-          status: res.statusCode ?? 0,
+          status: code,
           headers: res.headers,
           text: Buffer.concat(chunks).toString('utf8')
         });
@@ -139,8 +157,11 @@ export async function requestJson(url, opts = {}) {
   return { ...res, json };
 }
 
-/** 下载二进制内容（封面图等），不经过 utf8 转换，避免图片损坏 */
-export function requestBuffer(url, { method = 'GET', headers = {}, proxy = '', timeout = 20000 } = {}) {
+/** 下载二进制内容（封面图等），支持重定向跟随 */
+export function requestBuffer(
+  url,
+  { method = 'GET', headers = {}, proxy = '', timeout = 15000, redirectsLeft = 3 } = {}
+) {
   return new Promise((resolve, reject) => {
     let u;
     try {
@@ -163,11 +184,25 @@ export function requestBuffer(url, { method = 'GET', headers = {}, proxy = '', t
     if (isHttps && proxy) opts.agent = new HttpsProxyAgent(proxy);
 
     const req = mod.request(opts, (res) => {
+      const code = res.statusCode ?? 0;
+      if ([301, 302, 303, 307, 308].includes(code) && res.headers.location && redirectsLeft > 0) {
+        res.resume();
+        const nextUrl = new URL(res.headers.location, u).toString();
+        requestBuffer(nextUrl, {
+          method: 'GET',
+          headers,
+          proxy,
+          timeout,
+          redirectsLeft: redirectsLeft - 1
+        }).then(resolve, reject);
+        return;
+      }
+
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () =>
         resolve({
-          status: res.statusCode ?? 0,
+          status: code,
           contentType: res.headers['content-type'] ?? 'application/octet-stream',
           buffer: Buffer.concat(chunks)
         })
@@ -186,15 +221,17 @@ const proxyCache = new Map();
 
 /**
  * 为某个目标地址决定用哪个代理。
- * 优先级：设置里手填 > 常见本地端口 > 环境变量 > 直连。
- * 注意环境变量优先级最低——某些工具链会注入自己的内部代理，那个代理未必放行我们的目标站点。
+ * 若用户未配置代理且无候选端口，直接返回空字符串（直连），不阻塞请求。
  */
 export async function resolveProxy(cfg, testUrl) {
+  if (!cfg) return '';
   if (proxyCache.has(testUrl)) return proxyCache.get(testUrl);
 
   const candidates = [];
   if (cfg.proxy) candidates.push(cfg.proxy);
-  for (const hp of cfg.proxyProbe ?? []) candidates.push(`http://${hp}`);
+  for (const hp of cfg.proxyProbe ?? []) {
+    if (hp) candidates.push(/^https?:\/\//.test(hp) ? hp : `http://${hp}`);
+  }
   for (const key of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy']) {
     if (process.env[key]) {
       candidates.push(process.env[key]);
@@ -203,27 +240,26 @@ export async function resolveProxy(cfg, testUrl) {
   }
 
   const unique = [...new Set(candidates)].filter(Boolean);
+  if (unique.length === 0) {
+    proxyCache.set(testUrl, '');
+    return '';
+  }
 
   const probe = async (proxy) => {
     const res = await requestText(testUrl, {
       proxy,
-      timeout: 6000,
+      timeout: 4500,
       headers: { 'User-Agent': cfg.userAgent || DEFAULT_UA, Accept: 'application/json' }
     });
     if (res.status < 200 || res.status >= 500) throw new Error(`HTTP ${res.status}`);
     return proxy;
   };
 
-  let winner = null;
-  if (unique.length > 0) {
-    winner = await Promise.any(unique.map(probe)).catch(() => null);
-  }
-
+  const winner = await Promise.any(unique.map(probe)).catch(() => null);
   proxyCache.set(testUrl, winner ?? '');
   return winner ?? '';
 }
 
-/** 清空探测结果（改了配置后调用） */
 export function clearProxyCache() {
   proxyCache.clear();
 }

@@ -21,7 +21,9 @@ const MEDIA_FIELDS = `
  * 注意：对中文关键词的检索很不可靠（实测「葬送的芙莉莲」零命中），
  * 日文原名与罗马字效果好。因此作为 Bangumi 的补充与兜底，而不是首选。
  */
-export async function search(keyword, { proxy = '', ua, limit = 8 } = {}) {
+const FALLBACK_UA = 'ciyuan-kedu/0.1 (local anime ledger)';
+
+export async function search(keyword, { proxy = '', ua = FALLBACK_UA, limit = 8 } = {}) {
   const query = `
     query ($search: String, $perPage: Int) {
       Page(perPage: $perPage) {
@@ -34,7 +36,7 @@ export async function search(keyword, { proxy = '', ua, limit = 8 } = {}) {
     method: 'POST',
     body: JSON.stringify({ query, variables: { search: keyword, perPage: limit } }),
     proxy,
-    headers: { 'User-Agent': ua, 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { 'User-Agent': ua || FALLBACK_UA, 'Content-Type': 'application/json', Accept: 'application/json' },
     timeout: 12000
   });
 
@@ -44,13 +46,13 @@ export async function search(keyword, { proxy = '', ua, limit = 8 } = {}) {
   return list.map(toNormalized);
 }
 
-export async function detail(externalId, { proxy = '', ua } = {}) {
+export async function detail(externalId, { proxy = '', ua = FALLBACK_UA } = {}) {
   const query = `query ($id: Int) { Media(id: $id, type: ANIME) { ${MEDIA_FIELDS} } }`;
   const res = await requestJson(API, {
     method: 'POST',
     body: JSON.stringify({ query, variables: { id: Number(externalId) } }),
     proxy,
-    headers: { 'User-Agent': ua, 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { 'User-Agent': ua || FALLBACK_UA, 'Content-Type': 'application/json', Accept: 'application/json' },
     timeout: 12000
   });
 
@@ -58,6 +60,76 @@ export async function detail(externalId, { proxy = '', ua } = {}) {
   const media = res.json?.data?.Media;
   if (!media) throw new Error('AniList 上找不到这个条目');
   return toNormalized(media);
+}
+
+const SEASON_TO_ANILIST = {
+  winter: 'WINTER',
+  spring: 'SPRING',
+  summer: 'SUMMER',
+  autumn: 'FALL',
+  fall: 'FALL'
+};
+
+/**
+ * 按年份与季度从 AniList 获取完整季度新番列表（支持自动翻页拉取最多 100 部当季动画）。
+ */
+export async function seasonal(year, season = 'winter', { proxy = '', ua = FALLBACK_UA, limit = 100 } = {}) {
+  const y = Number(year) || new Date().getFullYear();
+  const alSeason = SEASON_TO_ANILIST[String(season || 'winter').toLowerCase()] || 'WINTER';
+  const maxItems = Math.min(Math.max(Number(limit) || 100, 1), 150);
+  const perPage = Math.min(maxItems, 50);
+
+  const query = `
+    query ($page: Int, $year: Int, $season: MediaSeason, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        pageInfo {
+          hasNextPage
+          total
+        }
+        media(season: $season, seasonYear: $year, type: ANIME, format_in: [TV, TV_SHORT, ONA], sort: [POPULARITY_DESC, SCORE_DESC]) {
+          ${MEDIA_FIELDS}
+        }
+      }
+    }
+  `;
+
+  const fetchPage = async (pageNum) => {
+    const res = await requestJson(API, {
+      method: 'POST',
+      body: JSON.stringify({
+        query,
+        variables: { page: pageNum, year: y, season: alSeason, perPage }
+      }),
+      proxy,
+      headers: {
+        'User-Agent': ua || FALLBACK_UA,
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      timeout: 12000
+    });
+    if (res.status !== 200) {
+      throw new Error(`AniList 季度番表返回 HTTP ${res.status}`);
+    }
+    return {
+      hasNextPage: Boolean(res.json?.data?.Page?.pageInfo?.hasNextPage),
+      media: res.json?.data?.Page?.media ?? []
+    };
+  };
+
+  const p1 = await fetchPage(1);
+  const allMedia = [...p1.media];
+
+  if (maxItems > 50 && p1.hasNextPage && p1.media.length >= 50) {
+    try {
+      const p2 = await fetchPage(2);
+      allMedia.push(...p2.media);
+    } catch {
+      /* ignore page 2 error */
+    }
+  }
+
+  return allMedia.slice(0, maxItems).map(toNormalized);
 }
 
 function toNormalized(media) {

@@ -7,31 +7,125 @@ export const ROOT = path.resolve(HERE, '..');
 export const WEB_DIR = path.join(ROOT, 'web');
 const CONFIG_PATH = path.join(ROOT, 'config.json');
 
+export const DEFAULT_DISCOVERY_TEMPLATES = [
+  {
+    id: 'mikan',
+    name: '蜜柑计划 Mikan',
+    url: 'https://mikanani.me/Home/Search?searchstr={keyword}',
+    enabled: true
+  },
+  {
+    id: 'dmhy',
+    name: '动漫花园 DMHY',
+    url: 'https://share.dmhy.org/topics/list?keyword={keyword}',
+    enabled: true
+  },
+  {
+    id: 'bangumi',
+    name: 'Bangumi 番组计划',
+    url: 'https://bgm.tv/subject_search/{keyword}?cat=2',
+    enabled: true
+  },
+  {
+    id: 'nyaa',
+    name: 'Nyaa',
+    url: 'https://nyaa.si/?f=0&c=1_0&q={keyword}',
+    enabled: true
+  }
+];
+
 export const DEFAULTS = {
-  dataDir: 'E:\\次元刻度',
-  port: 7345,
+  dataDir: process.env.DATA_DIR || process.env.FANZHANG_DATA_DIR || path.join(ROOT, 'data'),
+  port: Number(process.env.PORT) || 7345,
+  host: process.env.HOST || '127.0.0.1',
   proxy: '',
-  proxyProbe: ['127.0.0.1:7897', '127.0.0.1:7890', '127.0.0.1:10809', '127.0.0.1:1080'],
-  // Bangumi API 基址。默认官方地址，在大陆直连不通（域名被墙）；
-  // 填一个没被墙的中转地址即可免代理使用，例如自建的反向代理。
-  bangumiApiBase: 'https://api.bgm.tv',
-  userAgent: 'fan-zhang/0.1 (personal anime ledger)'
+  proxyProbe: ['127.0.0.1:7897', '127.0.0.1:7890', '127.0.0.1:10809'],
+  enabledSources: ['dandanplay', 'bangumi'],
+  // Bangumi API 基址：支持替换为任意国内可直连的反向代理或镜像地址
+  bangumiApiBase: process.env.BANGUMI_API_BASE || 'https://api.bgm.tv',
+  // 弹弹Play开放平台密钥（B-006）：填入即可启用弹弹Play搜索、新番导览与视频文件指纹匹配
+  dandanplayAppId: process.env.DANDANPLAY_APP_ID || '',
+  dandanplayAppSecret: process.env.DANDANPLAY_APP_SECRET || '',
+  dandanplayApiBase: process.env.DANDANPLAY_API_BASE || 'https://api.dandanplay.net',
+  dandanplayStrategy: 'economy',
+  dandanplaySafetyRatio: 0.9,
+  // 资源发现中心 URL 模板（Stage 8）：使用 {keyword} 占位符并自动 URL 编码
+  discoveryTemplates: DEFAULT_DISCOVERY_TEMPLATES,
+  // CORS 默认不发。前端是同源加载的，不需要这个头；
+  // 发 `*` 等于允许本机任意网页跨域调这个服务（含 /api/shutdown）。
+  // 真要做云端 + 独立前端部署时再在 config.json 里显式写来源。
+  corsOrigin: process.env.CORS_ORIGIN || '',
+  accessToken: process.env.ACCESS_TOKEN || '',
+  userAgent: 'fan-zhang/0.5 (personal anime ledger)',
+  seedDemo: false
 };
 
-export function loadConfig() {
+export function loadConfig(overrides = {}) {
   let user = {};
+  let needsSave = false;
+
   if (fs.existsSync(CONFIG_PATH)) {
     try {
       user = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     } catch (e) {
       console.warn('[config] config.json 解析失败，改用默认配置:', e.message);
+      needsSave = true;
     }
   } else {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULTS, null, 2), 'utf8');
+    needsSave = true;
   }
-  return { ...DEFAULTS, ...user };
+
+  // 在非 Windows 环境下自动修正旧版遗留的 Windows 盘符路径（不强行覆写用户端口或代理探测列表）
+  if (!user.dataDir || user.dataDir === 'E:\\次元刻度' || /^[A-Za-z]:\\/.test(String(user.dataDir))) {
+    if (process.platform !== 'win32') {
+      user.dataDir = DEFAULTS.dataDir;
+      needsSave = true;
+    }
+  }
+  if (!Array.isArray(user.enabledSources) || user.enabledSources.length === 0) {
+    user.enabledSources = DEFAULTS.enabledSources;
+    needsSave = true;
+  } else {
+    // 清理已移除的旧源（bilibili / anilist），仅保留 dandanplay 与 bangumi
+    const cleaned = user.enabledSources.filter((s) => s === 'dandanplay' || s === 'bangumi');
+    if (cleaned.length !== user.enabledSources.length || cleaned.length === 0) {
+      user.enabledSources = cleaned.length > 0 ? cleaned : DEFAULTS.enabledSources;
+      needsSave = true;
+    }
+  }
+
+  const merged = { ...DEFAULTS, ...user, ...overrides };
+  if (process.env.PORT) merged.port = Number(process.env.PORT) || 7345;
+  if (process.env.HOST) merged.host = process.env.HOST;
+  if (process.env.ACCESS_TOKEN !== undefined) merged.accessToken = process.env.ACCESS_TOKEN;
+  if (process.env.DATA_DIR || process.env.FANZHANG_DATA_DIR) {
+    merged.dataDir = process.env.DATA_DIR || process.env.FANZHANG_DATA_DIR;
+  }
+
+  if (needsSave) {
+    try {
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), 'utf8');
+    } catch {
+      /* 只读文件系统下忽略写配置失败 */
+    }
+  }
+  return merged;
 }
 
-export function saveConfig(cfg) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
+export function saveConfig(cfgOrDataDir, maybeUpdates) {
+  const cfg = typeof cfgOrDataDir === 'object' && cfgOrDataDir !== null ? cfgOrDataDir : maybeUpdates || {};
+  const next = { ...DEFAULTS, ...cfg };
+  try {
+    const targetFile =
+      typeof cfgOrDataDir === 'string'
+        ? path.join(path.resolve(cfgOrDataDir), 'config.json')
+        : cfg?.dataDir && path.resolve(cfg.dataDir) !== path.resolve(DEFAULTS.dataDir)
+          ? path.join(path.resolve(cfg.dataDir), 'config.json')
+          : CONFIG_PATH;
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, JSON.stringify(next, null, 2), 'utf8');
+  } catch {
+    /* ignore write error on read-only fs */
+  }
+  return next;
 }

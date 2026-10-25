@@ -1,0 +1,16 @@
+services:
+  ciyuan-kedu:
+    build: .
+    container_name: ciyuan-kedu
+    restart: unless-stopped
+    ports:
+      - "7345:7345"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=7345
+      - DATA_DIR=/app/data
+      - NO_OPEN=1
+      # 可选：设置云端访问口令，保护公网账本不被他人篡改（留空则无需口令）
+      - ACCESS_TOKEN=${ACCESS_TOKEN:-}
+    volumes:
+      - ./data:/app/data
