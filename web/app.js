@@ -1186,28 +1186,33 @@ function getMascotContextQuote(watchingItems) {
 function openMascotGalleryModal() {
   state.editingId = null;
   $("#modal .modal-card")?.classList.add("wide-card");
-  $("#modalTitle").textContent = "次元刻度 · 拟人化看板娘「刻度娘 (Kedu-chan)」角色立绘档案";
+  $("#modalTitle").textContent = "次元刻度 · 看板娘「刻刻 (Keke)」角色档案";
 
   const form = $("#animeForm");
   form.innerHTML = `
     <div>
-      <div class="ep-hint" style="margin-bottom:12px">
-        <strong>刻度娘 (Kedu-chan)</strong> 是「次元刻度 · 深夜放映室」的专属 AI 拟人化看板娘（Gijinka）。她随身携带着<strong>黄金刻度尺发卡</strong>、<strong>35mm 动画胶片领结</strong>、<strong>追番手账簿</strong>与<strong>「+1 集 / 已看完」大印章</strong>，在放映室焦点舱陪伴你记录每一部动画的感动时刻。
+      <div class="ep-hint" style="margin-bottom:14px;line-height:1.9">
+        <strong>刻刻（Keke）</strong>，次元刻度的观测者。银白长发、红瞳、黑色裙装配白色外套，
+        随身带一台记录用的笔记本，身边跟着一只猫形小助手。<br>
+        性格温和认真、偶尔吐槽；喜欢追番、整理、咖啡和夜晚。口头禅是「新的番剧，新的故事。」
       </div>
       <div class="mascot-gallery-grid">
         <div class="mascot-gallery-card">
-          <img src="/mascot-kedu1.jpg" alt="刻度娘·贝雷帽场记板立绘">
-          <div class="watching-mini-name">形象 I：场记板手账司书</div>
-          <div class="ep-hint">呆毛 + 黄金刻度章贝雷帽 + 刻度尺领带 + Q版「+1集」印章</div>
+          <img src="/assets/keke-portrait.png" alt="刻刻 主立绘">
+          <div class="watching-mini-name">刻刻 · 观测者</div>
+          <div class="ep-hint">银白长发 · 红色发饰 · 黑裙白外套</div>
         </div>
         <div class="mascot-gallery-card">
-          <img src="/mascot-kedu2.jpg" alt="刻度娘·猫耳双马尾女仆装立绘">
-          <div class="watching-mini-name">形象 II：猫耳监听耳机伴读娘</div>
-          <div class="ep-hint">播放键猫耳耳机 + 35mm胶片领结 + 刻度围裙 + Q版「已看完✓」盖章</div>
+          <img src="/assets/keke-chibi.png" alt="刻刻 Q 版">
+          <div class="watching-mini-name">刻刻 · Q 版</div>
+          <div class="ep-hint">猫形小助手随行，在放映室陪你记账</div>
         </div>
       </div>
+      <div class="ep-hint" style="margin:16px 0 4px;text-align:center;font-family:var(--font-display);font-size:12.5px;color:var(--ink-2)">
+        「我会一直在这里，陪你记录每一次心动。」
+      </div>
       <div class="form-actions">
-        <button type="button" class="btn primary" id="closeMascotModalBtn">返回深夜放映室</button>
+        <button type="button" class="btn primary" id="closeMascotModalBtn">返回放映室</button>
       </div>
     </div>
   `;

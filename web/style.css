@@ -3868,3 +3868,72 @@ button, input, select, textarea {
   0%, 100% { opacity: .25; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.5); }
 }
+
+/* ==========================================================================
+   手帐主题 · 对比度修正
+   用户反馈「集数上面那些字看不清」「很多地方字体和背景太近」。
+   问题根源：我第一版把状态色做成「淡色底 + 中等彩字」，在米黄纸上对比度不足。
+   这里重定义变量（后写覆盖前面的），并改用「实心块 + 白字」。
+   ========================================================================== */
+[data-ui-theme="washi"] {
+  --bg: #f6f1e5;
+  --surface: #fdfaf2;
+  --card: #fdfaf2;
+  --card-elevated: #fffdf8;
+  --hover-bg: #f0e8d6;
+  --line: #ddcbb0;
+  --line-strong: #c4ac8d;
+
+  /* 文字整体加深，尤其是三级文字（原来是 #8a7f6d，在米黄底上几乎糊掉） */
+  --text: #2b211c;
+  --ink: #2b211c;
+  --ink-2: #4f4038;
+  --ink-3: #6f5f52;
+  --muted: #6f5f52;
+  --faint: #8d7c6b;
+
+  --accent: #c0402a;
+  --accent-hover: #a5351f;
+  --accent-soft: rgba(192, 64, 42, 0.12);
+  --accent-glow: rgba(192, 64, 42, 0.22);
+  --warn: #c47a24;
+  --success: #3f7a55;
+
+  /* 状态标签：实心块 + 白字 */
+  --status-watching-bg: #c0402a;
+  --status-watching-text: #ffffff;
+  --status-watching-border: #9c2f1c;
+
+  --status-completed-bg: #3f5a72;
+  --status-completed-text: #ffffff;
+  --status-completed-border: #2d4255;
+
+  --status-want-bg: #c47a24;
+  --status-want-text: #ffffff;
+  --status-want-border: #a05d15;
+
+  --status-paused-bg: #7a6a58;
+  --status-paused-text: #ffffff;
+  --status-paused-border: #5e5044;
+
+  --status-dropped-bg: #8a7d70;
+  --status-dropped-text: #ffffff;
+  --status-dropped-border: #6b6157;
+}
+
+/* 图例条：原本 rgba(8,11,20,.58)，米黄底上一道深灰，上面的字全糊 */
+[data-ui-theme="washi"] .ep-legend-bar {
+  background: var(--hover-bg);
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+[data-ui-theme="washi"] .ep-legend-swatch.unwatched {
+  background: #fffdf8;
+  border-color: var(--line-strong);
+}
+
+/* 详情里的提示文字 */
+[data-ui-theme="washi"] .ep-hint,
+[data-ui-theme="washi"] .ep-summary .ep-unit {
+  color: var(--ink-3);
+}
