@@ -42,6 +42,8 @@ const COPY_FILES = [
 ];
 
 // 安装目录根下这些散落物属于「数据」，要收进 data/
+// 注意：不含 logs —— 那是运行时产物，服务跑着的时候文件被占用，
+// 强行 rename 会 EPERM；而且它本来就不该跟着数据走。
 const STRAY_DATA = [
   'ledger.db',
   'ledger.db-wal',
@@ -50,7 +52,6 @@ const STRAY_DATA = [
   'cache',
   'backup',
   'exports',
-  'logs',
   'config.json'
 ];
 

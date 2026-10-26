@@ -3383,3 +3383,184 @@ button, input, select, textarea {
   .pref-grid-editor { grid-template-columns: repeat(2, 1fr); }
   .tpl-row { grid-template-columns: auto 90px 1fr auto; }
 }
+
+/* ==========================================================================
+   第五套主题 · 温润手帐 (Washi Ledger)
+   米黄纸感 + 砖红印章 + 深褐墨字，对应手帐版本 UI
+   注意：必须给全套变量，否则会回退到 :root 的深色值（之前四套主题就栽在这）
+   ========================================================================== */
+[data-ui-theme="washi"] {
+  --bg: #f7f2e7;
+  --surface: #fffdf7;
+  --card: #fffdf7;
+  --card-elevated: #ffffff;
+  --hover-bg: #f1eadb;
+  --line: #e8dfcb;
+  --line-strong: #d9cdb4;
+  --text: #3a3226;
+  --ink: #3a3226;
+  --ink-2: #5c5347;
+  --ink-3: #8a7f6d;
+  --muted: #7d7264;
+  --faint: #a89b88;
+  --accent: #b34a32;
+  --accent-hover: #c95a3f;
+  --accent-soft: rgba(179, 74, 50, 0.10);
+  --accent-glow: rgba(179, 74, 50, 0.20);
+  --danger: #b34a32;
+  --danger-soft: rgba(179, 74, 50, 0.10);
+  --warn: #d89a5c;
+  --success: #7d9370;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font-display: Georgia, "Songti SC", "SimSun", "Noto Serif SC", "PingFang SC", system-ui, sans-serif;
+
+  --status-watching-bg: rgba(179, 74, 50, 0.11);
+  --status-watching-text: #a13f2a;
+  --status-watching-border: rgba(179, 74, 50, 0.32);
+
+  --status-completed-bg: rgba(125, 147, 112, 0.14);
+  --status-completed-text: #5f7a55;
+  --status-completed-border: rgba(125, 147, 112, 0.36);
+
+  --status-want-bg: rgba(216, 154, 92, 0.15);
+  --status-want-text: #a5732f;
+  --status-want-border: rgba(216, 154, 92, 0.40);
+
+  --status-paused-bg: rgba(160, 140, 110, 0.14);
+  --status-paused-text: #7a6a52;
+  --status-paused-border: rgba(160, 140, 110, 0.34);
+
+  --status-dropped-bg: rgba(140, 130, 120, 0.13);
+  --status-dropped-text: #6f655c;
+  --status-dropped-border: rgba(140, 130, 120, 0.32);
+
+  --media-ok-bg: rgba(125, 147, 112, 0.14);
+  --media-ok-text: #5f7a55;
+  --media-ok-border: rgba(125, 147, 112, 0.36);
+  --media-ok-bar: #7d9370;
+
+  --media-pending-bg: rgba(216, 154, 92, 0.15);
+  --media-pending-text: #a5732f;
+  --media-pending-border: rgba(216, 154, 92, 0.40);
+
+  --media-missing-bg: rgba(179, 74, 50, 0.11);
+  --media-missing-text: #a13f2a;
+  --media-missing-border: rgba(179, 74, 50, 0.32);
+  --media-missing-bar: #b34a32;
+}
+
+/* 纸的纹理：极淡横纹 + 顶部暖光 */
+[data-ui-theme="washi"] body {
+  background-color: var(--bg);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(120, 95, 60, 0.013) 2px 3px),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 253, 247, 0.92), rgba(247, 242, 231, 0) 70%);
+}
+
+/* 手帐版：卡片用柔和投影代替硬边框，虚线分隔 */
+[data-ui-theme="washi"] .card,
+[data-ui-theme="washi"] .stat-card {
+  box-shadow: 0 2px 10px rgba(120, 95, 60, 0.07), 0 1px 2px rgba(120, 95, 60, 0.05);
+}
+
+/* 手帐版：主标题用衬线，更像书页 */
+[data-ui-theme="washi"] .brand span:first-of-type,
+[data-ui-theme="washi"] .drawer-head span,
+[data-ui-theme="washi"] .modal-head span {
+  font-family: var(--font-display);
+  letter-spacing: .3px;
+}
+
+/* 手帐版：进度条改砖红渐变 + 加粗一点，像手绘的 */
+[data-ui-theme="washi"] .progress-fill,
+[data-ui-theme="washi"] .pbar-fill {
+  background: linear-gradient(90deg, #d89a5c, #b34a32);
+}
+
+/* ---- 手帐主题：覆盖 v1.3.0 里写死深色的组件 ---- */
+[data-ui-theme="washi"] .studio-sidebar {
+  background: linear-gradient(180deg, #fffdf7 0%, #f7f2e7 100%);
+  box-shadow: 4px 0 20px rgba(120, 95, 60, 0.06);
+}
+[data-ui-theme="washi"] .watching-focus-strip {
+  background: linear-gradient(135deg, #fffdf7 0%, #fdf6e3 100%);
+  box-shadow: 0 6px 20px rgba(120, 95, 60, 0.08);
+}
+[data-ui-theme="washi"] .topbar {
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.94), rgba(247, 242, 231, 0.8));
+  border-bottom: 1px solid var(--line);
+}
+[data-ui-theme="washi"] .brand-seal {
+  background: var(--accent);
+  color: #fff9f2;
+}
+[data-ui-theme="washi"] .drawer {
+  background: var(--surface);
+  box-shadow: -8px 0 30px rgba(120, 95, 60, 0.14);
+}
+[data-ui-theme="washi"] .modal-card {
+  background: var(--surface);
+  box-shadow: 0 16px 48px rgba(120, 95, 60, 0.18);
+}
+[data-ui-theme="washi"] .scrim {
+  background: rgba(60, 45, 30, 0.34);
+}
+/* 卡片投影像摊在纸上的纸片，不是浮在暗背景上的发光块 */
+[data-ui-theme="washi"] .anime-card,
+[data-ui-theme="washi"] .seasonal-card {
+  box-shadow: 0 2px 8px rgba(120, 95, 60, 0.12), 0 1px 2px rgba(120, 95, 60, 0.08);
+}
+[data-ui-theme="washi"] .anime-card:hover,
+[data-ui-theme="washi"] .seasonal-card:hover {
+  box-shadow: 0 6px 18px rgba(120, 95, 60, 0.18);
+}
+
+/* ---- 手帐主题：筛选标签、搜索框、下拉等表单控件 ---- */
+[data-ui-theme="washi"] .tab {
+  background: rgba(255, 253, 247, 0.85);
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+[data-ui-theme="washi"] .tab:hover {
+  background: var(--hover-bg);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+[data-ui-theme="washi"] .tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+[data-ui-theme="washi"] .searchbox input,
+[data-ui-theme="washi"] .sortbox select,
+[data-ui-theme="washi"] select,
+[data-ui-theme="washi"] input[type="text"],
+[data-ui-theme="washi"] input[type="date"],
+[data-ui-theme="washi"] input[type="number"] {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-ui-theme="washi"] .statusbar {
+  background: rgba(247, 242, 231, 0.9);
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+}
+
+/* ---- 手帐主题：正在追看横幅里的小卡片 ---- */
+[data-ui-theme="washi"] .watching-mini-card {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: 0 1px 4px rgba(120, 95, 60, 0.07);
+}
+[data-ui-theme="washi"] .watching-mini-card:hover {
+  background: var(--card-elevated);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(120, 95, 60, 0.14);
+}
+[data-ui-theme="washi"] .watching-mini-cover {
+  border-color: var(--line);
+  color: var(--ink);
+}

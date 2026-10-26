@@ -122,6 +122,25 @@ const UI_EDITIONS = [
       { label: '翠竹青', hex: '#0D9488' },
       { label: '深青墨色', hex: '#0F2933' }
     ]
+  },
+  {
+    key: 'washi',
+    shortName: '手帐',
+    name: '版本五 · 温润手帐 (Washi Ledger)',
+    recommendedLayout: 'grid',
+    scene: '纸质手账记录 · 盖章打卡 · 书脊式海报墙',
+    desc: '米黄纸感底色 (#F7F2E7) 与砖红印章主色 (#B34A32)，配衬线标题与柔和投影。书脊式海报卡、圆形盖章徽章、尺子刻度与胶带装饰，把冷冰冰的台账变成一本温暖的手帐。',
+    bg: '#f7f2e7',
+    card: '#fffdf7',
+    text: '#3a3226',
+    accent: '#b34a32',
+    badgeBg: '#b34a32',
+    swatches: [
+      { label: '米黄纸', hex: '#F7F2E7' },
+      { label: '砖红印章', hex: '#B34A32' },
+      { label: '暖橙', hex: '#D89A5C' },
+      { label: '深褐墨', hex: '#3A3226' }
+    ]
   }
 ];
 
