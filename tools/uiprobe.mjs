@@ -15,6 +15,8 @@ const proc = spawn(
   [
     '--headless=new',
     '--disable-gpu',
+    '--incognito',
+    '--disable-application-cache',
     '--hide-scrollbars',
     '--no-first-run',
     `--remote-debugging-port=${PORT}`,

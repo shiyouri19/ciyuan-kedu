@@ -166,6 +166,9 @@ const state = {
   loading: false,
   view: 'list',
   uiTheme: 'washi',
+  // 手帐横幅：当前焦点作品与折叠状态
+  heroAnimeId: null,
+  heroCollapsed: false,
   mediaSummaryByAnime: new Map(),
   layoutMode: (() => {
     try {
@@ -1243,48 +1246,71 @@ async function stampNextEpisode(item) {
 
 /**
  * 手帐主题：正在追看焦点横幅。
- * 结构取自 v1.0.0 的 Stage 17（横向紧凑：左侧封面+信息，中间刻度娘气泡，右侧按钮组），
- * 因为用户觉得之前「竖向堆四层 + 右侧便签」不好看。
+ * 结构取自 v1.0.0 的 Stage 17：左侧封面+信息，中间刻度娘气泡，右侧按钮组。
+ * 支持：多部在看时用顶部小标签切换焦点、收起/展开（收起只剩番名）。
  */
 function renderWashiFocus(strip, items) {
-  const top = items[0];
-  const cur = Number(top.episode_current || 0);
-  const tot = Number(top.episode_total || 0);
+  const activeItem = items.find((x) => x.id === state.heroAnimeId) || items[0];
+  state.heroAnimeId = activeItem.id;
+
+  const cur = Number(activeItem.episode_current || 0);
+  const tot = Number(activeItem.episode_total || 0);
   const pct = tot > 0 ? Math.min(100, Math.round((cur / tot) * 100)) : 0;
 
-  const hero = el('div', 'watching-hero');
+  const hero = el('div', 'watching-hero' + (state.heroCollapsed ? ' collapsed' : ''));
 
   // ---- 左：封面 + 信息 ----
   const left = el('div', 'hero-left');
 
   const cover = el('div', 'hero-cover');
   const cimg = document.createElement('img');
-  cimg.alt = top.canonical_title || '';
+  cimg.alt = activeItem.canonical_title || '';
   cimg.referrerPolicy = 'no-referrer';
-  cimg.src = coverProxyUrl(top.cover_path, 200);
+  cimg.src = coverProxyUrl(activeItem.cover_path, 200);
   cimg.style.cssText = 'width:100%;height:100%;object-fit:cover;';
   cimg.onerror = () => {
     cimg.style.display = 'none';
-    cover.style.background = coverStyle(top.canonical_title);
+    cover.style.background = coverStyle(activeItem.canonical_title);
   };
   cover.appendChild(cimg);
   cover.title = '点击打开作品手账详情';
-  cover.addEventListener('click', () => openDetail(top.id));
+  cover.addEventListener('click', () => openDetail(activeItem.id));
   left.appendChild(cover);
 
   const info = el('div', 'hero-info');
+
   const kickerRow = el('div', 'hero-kicker-row');
-  kickerRow.appendChild(el('span', 'hero-kicker', `● 正在追看 (${items.length})`));
+  kickerRow.appendChild(el('span', 'hero-kicker', '● 正在追看 (' + items.length + ')'));
+
+  // 多部在追时，顶部小标签可切换焦点
+  if (items.length > 1) {
+    const switcher = el('div', 'hero-switcher');
+    for (const it of items.slice(0, 5)) {
+      const dot = el(
+        'button',
+        'hero-switch-dot' + (it.id === activeItem.id ? ' active' : ''),
+        it.canonical_title
+      );
+      dot.type = 'button';
+      dot.title = '切换焦点至「' + it.canonical_title + '」';
+      dot.addEventListener('click', () => {
+        state.heroAnimeId = it.id;
+        renderList();
+      });
+      switcher.appendChild(dot);
+    }
+    kickerRow.appendChild(switcher);
+  }
   info.appendChild(kickerRow);
 
   const titleRow = el('div', 'hero-title-row');
-  const titleEl = el('div', 'hero-title', top.canonical_title || '');
-  titleEl.addEventListener('click', () => openDetail(top.id));
+  const titleEl = el('div', 'hero-title', activeItem.canonical_title || '');
+  titleEl.addEventListener('click', () => openDetail(activeItem.id));
   titleRow.appendChild(titleEl);
   const metaBits = [
-    top.release_year ? `${top.release_year} 年` : null,
-    top.anime_type || null,
-    top.rating ? `★ ${top.rating}` : null
+    activeItem.release_year ? activeItem.release_year + ' 年' : null,
+    activeItem.anime_type || null,
+    activeItem.rating ? '★ ' + activeItem.rating : null
   ].filter(Boolean);
   if (metaBits.length) titleRow.appendChild(el('span', 'hero-meta-text', metaBits.join(' · ')));
   info.appendChild(titleRow);
@@ -1296,7 +1322,8 @@ function renderWashiFocus(strip, items) {
   progBar.appendChild(progFill);
   progWrap.appendChild(progBar);
   progWrap.appendChild(
-    el('span', 'hero-progress-label', tot > 0 ? `已看 ${cur} / ${tot} 集 (${pct}%)` : '尚未设置总集数')
+    el('span', 'hero-progress-label',
+      tot > 0 ? '已看 ' + cur + ' / ' + tot + ' 集 (' + pct + '%)' : '尚未设置总集数')
   );
   info.appendChild(progWrap);
 
@@ -1321,22 +1348,36 @@ function renderWashiFocus(strip, items) {
   const actions = el('div', 'hero-actions');
   if (tot > 0 && cur < tot) {
     const nextEp = Math.min(tot, cur + 1);
-    const bump = el('button', 'hero-bump-btn', `盖章 +1 集 (第${nextEp}集)`);
+    const bump = el('button', 'hero-bump-btn', '盖章 +1 集 (第' + nextEp + '集)');
     bump.type = 'button';
     bump.addEventListener('click', async () => {
       bump.disabled = true;
-      await stampNextEpisode(top);
+      await stampNextEpisode(activeItem);
       bump.disabled = false;
     });
     actions.appendChild(bump);
   } else if (tot > 0) {
     actions.appendChild(el('span', 'hero-progress-label', '✓ 已看完'));
+  } else {
+    const setEp = el('button', 'btn small primary', '去设集数');
+    setEp.type = 'button';
+    setEp.addEventListener('click', () => openDetail(activeItem.id));
+    actions.appendChild(setEp);
   }
 
   const detailBtn = el('button', 'btn small', '翻开详情');
   detailBtn.type = 'button';
-  detailBtn.addEventListener('click', () => openDetail(top.id));
+  detailBtn.addEventListener('click', () => openDetail(activeItem.id));
   actions.appendChild(detailBtn);
+
+  const foldBtn = el('button', 'link-btn', state.heroCollapsed ? '展开 ▾' : '收起 ▴');
+  foldBtn.type = 'button';
+  foldBtn.title = '折叠或展开顶部正在追看横幅';
+  foldBtn.addEventListener('click', () => {
+    state.heroCollapsed = !state.heroCollapsed;
+    renderList();
+  });
+  actions.appendChild(foldBtn);
 
   hero.appendChild(actions);
   strip.appendChild(hero);

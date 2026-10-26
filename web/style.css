@@ -4336,5 +4336,28 @@ button, input, select, textarea {
   font-weight: 500;
 }
 
-/* 手账质感海报卡片增强 */
-.card {
+/* 手账质感海报卡片增强（这条规则之前被误写成未闭合的 .card {，已移除） */
+
+/* ---- 手帐主题：抽屉必须盖在吸顶横幅之上 ---- */
+/* .watching-hero 的 z-index 是 25，而 .drawer 只有 20，详情抽屉顶部会被横幅压住 */
+.drawer { z-index: 40; }
+.scrim { z-index: 39; }
+
+/* .drawer.open 的优先级比 .drawer 高，单独覆盖 */
+.drawer.open { z-index: 40; }
+
+/* ---- 手帐主题：抽屉里的白字（v1.3.0 给深色主题写的） ---- */
+[data-ui-theme="washi"] .detail-title {
+  color: var(--ink);
+}
+[data-ui-theme="washi"] .drawer-body,
+[data-ui-theme="washi"] .drawer-head {
+  color: var(--ink);
+}
+/* 抽屉里的小标题 / 数值 */
+[data-ui-theme="washi"] .drawer-body h3,
+[data-ui-theme="washi"] .drawer-body h4,
+[data-ui-theme="washi"] .ep-block-title,
+[data-ui-theme="washi"] .ep-summary strong {
+  color: var(--ink);
+}
