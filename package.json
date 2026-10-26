@@ -1,6 +1,6 @@
 {
   "name": "fan-zhang",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "次元刻度 · 个人动画观看账本（本地优先 / 零第三方依赖 / 桌面独立窗口）",
   "type": "module",
