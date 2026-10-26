@@ -1196,16 +1196,11 @@ function openMascotGalleryModal() {
         随身带一台记录用的笔记本，身边跟着一只猫形小助手。<br>
         性格温和认真、偶尔吐槽；喜欢追番、整理、咖啡和夜晚。口头禅是「新的番剧，新的故事。」
       </div>
-      <div class="mascot-gallery-grid">
+      <div class="mascot-gallery-grid" style="grid-template-columns:1fr">
         <div class="mascot-gallery-card">
-          <img src="/assets/keke-portrait.png" alt="刻刻 主立绘">
-          <div class="watching-mini-name">刻刻 · 观测者</div>
-          <div class="ep-hint">银白长发 · 红色发饰 · 黑裙白外套</div>
-        </div>
-        <div class="mascot-gallery-card">
-          <img src="/assets/keke-chibi.png" alt="刻刻 Q 版">
-          <div class="watching-mini-name">刻刻 · Q 版</div>
-          <div class="ep-hint">猫形小助手随行，在放映室陪你记账</div>
+          <img src="/assets/keke-sheet.jpg" alt="刻刻 完整角色设定图">
+          <div class="watching-mini-name">刻刻 · 完整设定</div>
+          <div class="ep-hint">主立绘 / 角色三视图 / 表情 / Q 版 / 细节 / 配色方案</div>
         </div>
       </div>
       <div class="ep-hint" style="margin:16px 0 4px;text-align:center;font-family:var(--font-display);font-size:12.5px;color:var(--ink-2)">

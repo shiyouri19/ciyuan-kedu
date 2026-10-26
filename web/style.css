@@ -3937,3 +3937,55 @@ button, input, select, textarea {
 [data-ui-theme="washi"] .ep-summary .ep-unit {
   color: var(--ink-3);
 }
+
+/* ==========================================================================
+   手帐主题 · 高密台账 / 状态看板 的对比度
+   用户要求：这两种布局样式不用改，但字色和背景色不能太近。
+   问题：.ledger-table th 的 background 是硬编码 rgba(15,21,38,.85)，
+   深底压深褐字，几乎看不见。
+   ========================================================================== */
+
+/* ---------- 高密台账 ---------- */
+[data-ui-theme="washi"] .ledger-table-wrap {
+  box-shadow: 0 2px 10px rgba(120, 95, 60, 0.08);
+  border-color: var(--line-2);
+}
+[data-ui-theme="washi"] .ledger-table th {
+  /* 关键：把深色表头换成浅纸色 */
+  background: var(--hover-bg);
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--line-2);
+}
+[data-ui-theme="washi"] .ledger-table td {
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+[data-ui-theme="washi"] .ledger-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+[data-ui-theme="washi"] .ledger-table tbody tr.selected-row {
+  background: var(--accent-soft);
+}
+/* 表格里的次要信息（年份、类型、集数）比正文浅一档，但仍在可读范围 */
+[data-ui-theme="washi"] .ledger-table td .ep-hint,
+[data-ui-theme="washi"] .ledger-table td small {
+  color: var(--ink-3);
+}
+
+/* ---------- 状态看板 ---------- */
+[data-ui-theme="washi"] .kanban-col {
+  border-color: var(--line-2);
+  box-shadow: 0 1px 6px rgba(120, 95, 60, 0.06);
+}
+[data-ui-theme="washi"] .kanban-col-head {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 600;
+  border-bottom: 1px dashed var(--line-2);
+}
+/* 列头右侧的计数：用砖红强调 */
+[data-ui-theme="washi"] .kanban-col-head .tab-count,
+[data-ui-theme="washi"] .kanban-col-head .count {
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -45,6 +45,6 @@ web/preview-assets/
 web/preview-*.html
 
 # Keke 吉祥物素材：仅本地保留，不进公开仓库
-web/assets/keke-*.png
+web/assets/keke-*
 .crop*.py
 .companion*
