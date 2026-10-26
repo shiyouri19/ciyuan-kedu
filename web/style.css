@@ -3989,3 +3989,67 @@ button, input, select, textarea {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* ==========================================================================
+   手帐主题 · 侧边栏
+   用户反复反馈「侧边栏字体看不清」。根因不是字浅，是几个硬编码：
+   - .studio-side-btn:hover  color: #ffffff   → 米黄底上白字，hover 就消失
+   - .studio-side-btn.active color: #ffffff + 紫色渐变背景，和手帐风完全不搭
+   - .studio-side-count      background: rgba(255,255,255,.06) → 米黄底上几乎看不见
+   - .studio-side-section    color: var(--faint) #8d7c6b，分组标题太浅
+   ========================================================================== */
+
+/* 品牌：大号衬线深褐 */
+[data-ui-theme="washi"] .studio-side-brand {
+  color: var(--ink);
+  font-family: var(--font-display);
+  letter-spacing: .4px;
+}
+[data-ui-theme="washi"] .studio-side-brand-left {
+  color: var(--ink);
+}
+
+/* 分组标题：从 var(--faint) 提到 --ink-2，加粗 */
+[data-ui-theme="washi"] .studio-side-section {
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .1em;
+}
+
+/* 导航项：正文级深褐，字号略放大 */
+[data-ui-theme="washi"] .studio-side-btn {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+[data-ui-theme="washi"] .studio-side-btn:hover {
+  background: var(--hover-bg);
+  color: var(--ink);        /* 关键：不能是 #ffffff */
+  border-color: var(--line-2);
+}
+
+/* 选中项：白卡片 + 砖红左竖线 + 砖红字，不用紫色渐变 */
+[data-ui-theme="washi"] .studio-side-btn.active {
+  background: var(--card-elevated);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent), 0 1px 4px rgba(120, 95, 60, 0.08);
+}
+
+/* 计数徽章：浅底深字，选中时反过来 */
+[data-ui-theme="washi"] .studio-side-count {
+  background: var(--hover-bg);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+[data-ui-theme="washi"] .studio-side-btn.active .studio-side-count {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* 底部说明 */
+[data-ui-theme="washi"] .studio-side-footer {
+  color: var(--ink-3);
+}
