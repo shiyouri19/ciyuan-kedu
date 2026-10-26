@@ -83,6 +83,63 @@ const SAMPLES = [
       '位于大陆中央的某个大国，花街的药师少女“猫猫”被拐卖至后宫充当宫女。原本只想低调熬过任期的她，却因好奇心与渊博的药学毒物知识被宦官壬氏发掘，接连解开宫廷中扑朔迷离的谜团。',
     notes: '朋友强烈推荐，准备周末开始补番。',
     watchRanges: []
+  },
+  {
+    canonical_title: '吹响吧！上低音号 第三季',
+    sort_title: '吹响吧上低音号3',
+    release_year: 2024,
+    anime_type: 'TV',
+    default_episode_duration_minutes: 24,
+    status: 'watching',
+    rating: 9,
+    is_favorite: true,
+    tags: ['音乐', '青春', '校园'],
+    episodes: 13,
+    source: 'bangumi',
+    external_id: '47501',
+    cover_url: 'https://lain.bgm.tv/pic/cover/l/ef/8f/283643_2bcm7.jpg',
+    synopsis:
+      '升入高三并担任北宇治高中吹奏乐部部长的黄前久美子，与部员们以及转学生黑江真由一起，向着梦寐以求的全国大赛金奖发起最后的冲刺。',
+    notes: '久美子三年吹奏部生涯的集大成之作，合奏演出张力十足。',
+    watchRanges: [{ from: 1, to: 8, date: '2026-09-14' }]
+  },
+  {
+    canonical_title: '胆大党',
+    sort_title: '胆大党',
+    release_year: 2024,
+    anime_type: 'TV',
+    default_episode_duration_minutes: 24,
+    status: 'watching',
+    rating: 9,
+    is_favorite: false,
+    tags: ['奇幻', '战斗', '青春'],
+    episodes: 12,
+    source: 'bangumi',
+    external_id: '49001',
+    cover_url: 'https://lain.bgm.tv/pic/cover/l/44/7d/467461_HHw4K.jpg',
+    synopsis:
+      '相信幽灵存在却否定外星人的辣妹绫濑桃，与相信外星人存在却否定幽灵的社恐少年高仓健（厄卡伦），两人为证明各自观点前往灵异圣地，却双双遭遇超常怪异。',
+    notes: '科学猴的分镜与色彩爆发力太强了，每集高能不断。',
+    watchRanges: [{ from: 1, to: 5, date: '2026-10-12' }]
+  },
+  {
+    canonical_title: '败犬女主太多了！',
+    sort_title: '败犬女主太多了',
+    release_year: 2024,
+    anime_type: 'TV',
+    default_episode_duration_minutes: 24,
+    status: 'paused',
+    rating: 9,
+    is_favorite: false,
+    tags: ['青春', '校园', '恋爱'],
+    episodes: 12,
+    source: 'bangumi',
+    external_id: '48120',
+    cover_url: 'https://lain.bgm.tv/pic/cover/l/e4/dc/464376_NsZRw.jpg',
+    synopsis:
+      '自称“背景人物”的高中生温水佳树，偶然目睹了人气女生八奈见杏菜被青梅竹马甩掉的失恋现场。以此为契机，身边接二连三聚集起恋爱失利的“败犬女主”们。',
+    notes: 'A-1 制作极其精良，八奈见杏菜塑造得太鲜活了。',
+    watchRanges: [{ from: 1, to: 4, date: '2026-07-28' }]
   }
 ];
 
@@ -113,6 +170,32 @@ function repairKnownBrokenData(db) {
   }
 }
 
+export function seedDemoData(db) {
+  repairKnownBrokenData(db);
+  const existingTitles = new Set(
+    db
+      .prepare('SELECT canonical_title FROM anime WHERE deleted_at IS NULL')
+      .all()
+      .map((r) => r.canonical_title)
+  );
+
+  let count = 0;
+  for (const item of SAMPLES) {
+    if (existingTitles.has(item.canonical_title)) continue;
+    const { watchRanges, ...input } = item;
+    const created = createAnimeEntry(db, input);
+    for (const r of watchRanges ?? []) {
+      markRange(db, created.anime.id, r.from, r.to, r.date);
+    }
+    count += 1;
+  }
+
+  db.prepare("INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES ('initial_seed_v1', '1', ?)").run(
+    new Date().toISOString()
+  );
+  return { seeded: count > 0, count };
+}
+
 export function seedInitialLibraryIfNeeded(db) {
   repairKnownBrokenData(db);
 
@@ -127,18 +210,5 @@ export function seedInitialLibraryIfNeeded(db) {
     return { seeded: false, count: 0 };
   }
 
-  let count = 0;
-  for (const item of SAMPLES) {
-    const { watchRanges, ...input } = item;
-    const created = createAnimeEntry(db, input);
-    for (const r of watchRanges ?? []) {
-      markRange(db, created.anime.id, r.from, r.to, r.date);
-    }
-    count += 1;
-  }
-
-  db.prepare("INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES ('initial_seed_v1', '1', ?)").run(
-    new Date().toISOString()
-  );
-  return { seeded: true, count };
+  return seedDemoData(db);
 }

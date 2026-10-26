@@ -115,12 +115,13 @@ function applyInfo(
    * - 有值但没有来源记录 → 不动（来源不明就当它不可覆盖，保守优先）
    * - 有新来源且比当前来源权威 → 覆盖（Bangumi 可以盖掉弹弹Play 的封面）
    */
+  const existingExts = listExternals(db, anime.id);
+  const inferredSource = existingExts[0]?.provider || 'filename';
   const shouldFill = (field, currentValue, newValue) => {
     if (!newValue) return false;
     if (lockedSet.has(field)) return false;
     if (!currentValue) return true;
-    const cur = fieldSources.get(field);
-    if (!cur) return false;
+    const cur = fieldSources.get(field) || inferredSource;
     return outranks(source, cur);
   };
   const curated = lookupCuratedChineseEntry(

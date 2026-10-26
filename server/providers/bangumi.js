@@ -355,6 +355,17 @@ export async function detail(externalId, { proxy = '', ua = FALLBACK_UA } = {}) 
     }
 
     const it = res.json ?? {};
+    // Bangumi type=2 为动画；若远端返回的是书籍(1)/音乐(3)/游戏(4)等非动画条目，或与内置精选词条同名核验不符，优先使用 curatedHit
+    if (curatedHit) {
+      const isAnimeType = !it.type || Number(it.type) === 2;
+      const remoteKeys = buildAnimeDedupKeys(it.name_cn, it.name);
+      const curatedKeys = buildAnimeDedupKeys(curatedHit.title, curatedHit.titleNative, ...(curatedHit.aliases ?? []));
+      const keysOverlap = remoteKeys.some((k) => curatedKeys.includes(k));
+      if (!isAnimeType || !keysOverlap) {
+        return curatedHit;
+      }
+    }
+
     return normalize(
       {
         externalId: it.id ?? externalId,

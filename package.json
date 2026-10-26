@@ -1,8 +1,8 @@
 {
   "name": "fan-zhang",
-  "version": "0.9.1",
+  "version": "1.3.0",
   "private": true,
-  "description": "次元刻度 · 个人动画观看账本（本地优先 / 零第三方依赖 / 桌面独立窗口）",
+  "description": "次元刻度 · 深夜放映室 (Midnight Screening Room) 沉浸式动漫收藏与观看管理应用",
   "type": "module",
   "main": "server/index.js",
   "engines": {

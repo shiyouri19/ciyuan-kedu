@@ -52,6 +52,7 @@ import {
   createDatabaseBackup,
   restoreDatabaseBackup
 } from './services/backupService.js';
+import { seedDemoData } from './db/seed.js';
 import { fetchCover } from './services/coverService.js';
 import {
   getEpisodesView,
@@ -391,6 +392,11 @@ export function createServer({ db, cfg = {}, schemaVersion, appVersion = '0.3.0'
     }
 
     // ---- 账本导出、导入与 Stage 14 云端一键双向同步 ----
+    if (method === 'POST' && p === '/api/demo-seed') {
+      const resSeed = seedDemoData(db);
+      return json(200, { ok: true, ...resSeed });
+    }
+
     if (method === 'GET' && p === '/api/export') {
       return json(200, exportLibraryData(db));
     }
@@ -791,7 +797,7 @@ export function createServer({ db, cfg = {}, schemaVersion, appVersion = '0.3.0'
     // ---- 未知接口 ----
     if (p.startsWith('/api/')) {
       const knownPath =
-        /^\/api\/(health|meta|tags|anime|search|source-status|cover|stats|config|export|import|sync|seasonal|calendar|backups)$/.test(p) ||
+        /^\/api\/(health|meta|tags|anime|search|source-status|cover|stats|config|export|import|sync|seasonal|calendar|backups|demo-seed)$/.test(p) ||
         p === '/api/dandanplay/quota' ||
         p === '/api/anime/batch' ||
         p === '/api/anime/batch-action' ||

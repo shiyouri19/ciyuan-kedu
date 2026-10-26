@@ -46,9 +46,94 @@ const DEFAULT_DISCOVERY_TPLS = [
 const API_BASE_STORAGE_KEY = 'fanzhang_api_base';
 const API_TOKEN_STORAGE_KEY = 'fanzhang_api_token';
 const PREF_GRID_STORAGE_KEY = 'fanzhang_pref_grid_v1';
+const UI_THEME_STORAGE_KEY = 'fanzhang_ui_theme_v1';
+const UI_LAYOUT_STORAGE_KEY = 'fanzhang_ui_layout_v1';
+
+const UI_EDITIONS = [
+  {
+    key: 'editorial',
+    shortName: '手账版',
+    name: '版本一 · 温润手账本 (Editorial Ledger)',
+    recommendedLayout: 'grid',
+    scene: '日常追番记账 · 长文观后感 · 动画生涯个人喜好表导出',
+    desc: '采用暖米白纸感底色 (#F6F4EE) 与普鲁士蓝印章主色 (#185FA5)，搭配人文衬线标题与 2:3 经典海报墙。适合慢节奏记录分集打分、撰写长评感想与生成分享海报。',
+    bg: '#f6f4ee',
+    card: '#ffffff',
+    text: '#22201c',
+    accent: '#185fa5',
+    badgeBg: '#185fa5',
+    swatches: [
+      { label: '暖米宣纸', hex: '#F6F4EE' },
+      { label: '普鲁士蓝', hex: '#185FA5' },
+      { label: '手账墨黑', hex: '#22201C' }
+    ]
+  },
+  {
+    key: 'cinema',
+    shortName: '放映室',
+    name: '版本二 · 暗夜放映室 (Cinema Dark)',
+    recommendedLayout: 'grid',
+    scene: '夜间沉浸看番 · 本地播放器联动 · 2:3 蓝光海报墙浏览',
+    desc: '专为夜间关灯看番与调用 PotPlayer / VLC / IINA 本地播放场景打造。深邃曜石蓝黑 (#0B0F17) 降低屏幕眩光，电光青 (#38BDF8) 进度条与琥珀金 (#F59E0B) 评分角标让番剧封面成为视觉绝对核心。',
+    bg: '#0b0f17',
+    card: '#151e30',
+    text: '#f1f5f9',
+    accent: '#38bdf8',
+    badgeBg: '#0284c7',
+    swatches: [
+      { label: '曜石蓝黑', hex: '#0B0F17' },
+      { label: '深海炭蓝', hex: '#151E30' },
+      { label: '电光青', hex: '#38BDF8' },
+      { label: '琥珀星标', hex: '#F59E0B' }
+    ]
+  },
+  {
+    key: 'studio',
+    shortName: '工作台',
+    name: '版本三 · 极客工作台 (Studio Pro)',
+    recommendedLayout: 'table',
+    scene: '百部以上大库管理 · NAS 本地文件夹清洗 · 字幕组磁力链聚合',
+    desc: '引入左侧常驻深色工作台导航栏 (Sidebar) + 宽屏全息数据台账表 (Table View)。所有集数、时长、评分均采用等宽对齐数字 (tabular-nums)，支持单屏高密度检视数十部作品并一键批量操作。',
+    bg: '#f3f4f6',
+    card: '#ffffff',
+    text: '#111827',
+    accent: '#4f46e5',
+    badgeBg: '#4f46e5',
+    swatches: [
+      { label: '石墨侧栏', hex: '#111827' },
+      { label: '极客靛青', hex: '#4F46E5' },
+      { label: '冷灰台面', hex: '#F3F4F6' }
+    ]
+  },
+  {
+    key: 'bento',
+    shortName: '画报版',
+    name: '版本四 · 清透画报风 (Bento Magazine)',
+    recommendedLayout: 'board',
+    scene: '季度新番周历导览 · 状态分栏看板 · 手机 PWA 与电脑跨端云同步',
+    desc: '以薄荷冷白 (#EEF4F6) 与翠竹青 (#0D9488) 构建现代画报卡片，默认搭配四栏状态看板 (在看 / 想看 / 已看完 / 暂停·弃番) 与顶部「正在追番 · 快捷打卡」焦点舱，一眼掌握本季追番节奏。',
+    bg: '#eef4f6',
+    card: '#ffffff',
+    text: '#0f2933',
+    accent: '#0d9488',
+    badgeBg: '#0d9488',
+    swatches: [
+      { label: '薄荷冷白', hex: '#EEF4F6' },
+      { label: '翠竹青', hex: '#0D9488' },
+      { label: '深青墨色', hex: '#0F2933' }
+    ]
+  }
+];
+
+const LAYOUT_MODES = [
+  { key: 'grid', label: '海报网格', title: '2:3 经典海报卡片网格' },
+  { key: 'table', label: '高密台账', title: '紧凑表格式台账，适合快速比对进度与评分' },
+  { key: 'board', label: '状态看板', title: '按「在看 / 想看 / 已看完 / 暂停·弃番」四栏分组看板' }
+];
 
 const state = {
   list: [],
+  allLibraryList: [],
   tags: [],
   status: '',
   tag: '',
@@ -61,6 +146,15 @@ const state = {
   editingId: null,
   loading: false,
   view: 'list',
+  uiTheme: 'cinema',
+  mediaSummaryByAnime: new Map(),
+  layoutMode: (() => {
+    try {
+      return localStorage.getItem(UI_LAYOUT_STORAGE_KEY) || 'grid';
+    } catch {
+      return 'grid';
+    }
+  })(),
   ledgerBatchMode: false,
   ledgerSelected: new Set(),
   seasonalYear: new Date().getFullYear(),
@@ -268,6 +362,58 @@ function extractRawCoverUrl(coverPath) {
   return s;
 }
 
+function buildFallbackPosterDataUri(title) {
+  const clean = String(title || "次元刻度").replace(/^[★☆]\s*/, "").trim();
+  let h = 0;
+  for (let i = 0; i < clean.length; i++) h = (h * 31 + clean.charCodeAt(i)) | 0;
+  const palettes = [
+    ["#0f172a", "#1e293b", "#93c5fd", "MIDNIGHT · ARCHIVE"],
+    ["#111827", "#1e1b4b", "#a5b4fc", "SCREENING · EDITION"],
+    ["#0c1322", "#172554", "#7dd3fc", "CINEMA · COLLECTION"],
+    ["#0f172a", "#132a2e", "#6ee7b7", "ANIME · CHRONICLE"],
+    ["#131629", "#272343", "#c4b5fd", "SYMPHONY · ARCHIVE"],
+    ["#181826", "#291d32", "#fda4af", "SPECIAL · FEATURE"],
+    ["#0d1526", "#1e293b", "#bae6fd", "SERIES · CATALOG"]
+  ];
+  const [c1, c2, c3, tag] = palettes[Math.abs(h) % palettes.length];
+  const safe = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const l1 = safe(clean.slice(0, 6));
+  const l2 = safe(clean.slice(6, 12));
+  const ch = safe(clean.slice(0, 1) || "番");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" width="300" height="420">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${c1}"/>
+        <stop offset="62%" stop-color="${c2}"/>
+        <stop offset="100%" stop-color="#0f172a"/>
+      </linearGradient>
+    </defs>
+    <rect width="300" height="420" fill="url(#g)"/>
+    <circle cx="235" cy="88" r="82" fill="${c3}" opacity="0.16"/>
+    <circle cx="52" cy="315" r="115" fill="${c3}" opacity="0.1"/>
+    <rect x="14" y="14" width="272" height="392" rx="8" fill="none" stroke="rgba(255,255,255,0.26)" stroke-width="1.5"/>
+    <text x="26" y="42" fill="${c3}" font-size="11" font-family="sans-serif" font-weight="700" letter-spacing="1.5">CIYUAN KEDU · EDITION</text>
+    <text x="195" y="195" fill="rgba(255,255,255,0.11)" font-size="128" font-family="serif" font-weight="800">${ch}</text>
+    <text x="26" y="316" fill="#ffffff" font-size="27" font-family="serif" font-weight="800">${l1}</text>
+    ${l2 ? `<text x="26" y="350" fill="#ffffff" font-size="22" font-family="serif" font-weight="700">${l2}</text>` : ""}
+    <text x="26" y="382" fill="${c3}" font-size="11.5" font-family="sans-serif" font-weight="600" letter-spacing="1">${tag}</text>
+  </svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
+function resolveBuiltInPoster(title) {
+  const t = String(title || '').trim();
+  if (!t) return '';
+  if (t.includes('芙莉莲')) return '/posters/frieren.jpg';
+  if (t.includes('药屋')) return '/posters/kusuriya.jpg';
+  if (t.includes('迷宫饭')) return '/posters/dungeon_meshi.jpg';
+  if (t.includes('上低音号') || t.includes('京吹')) return '/posters/euphonium.jpg';
+  if (t.includes('胆大党') || t.includes('当哒当')) return '/posters/dandadan.jpg';
+  if (t.includes('孤独摇滚')) return '/posters/bocchi.jpg';
+  if (t.includes('败犬女主')) return '/posters/makeine.jpg';
+  return '';
+}
+
 function paintCover(node, title, coverPath, width = 400) {
   node.style.background = coverStyle(title);
   const initial = el('span', 'cover-initial', firstChar(title));
@@ -276,18 +422,21 @@ function paintCover(node, title, coverPath, width = 400) {
   const proxyUrl = coverProxyUrl(coverPath, width);
   const rawRemoteUrl = resizeBgmUrl(extractRawCoverUrl(coverPath), width);
   const rawOriginalUrl = extractRawCoverUrl(coverPath).replace(/^(https?:\/\/lain\.bgm\.tv)\/r\/\d+\//, '$1/');
-  const candidates = [proxyUrl, rawRemoteUrl, rawOriginalUrl].filter((x, i, arr) => x && arr.indexOf(x) === i);
-  if (candidates.length === 0) return;
+  const builtInPoster = resolveBuiltInPoster(title);
+  const svgFallback = buildFallbackPosterDataUri(title);
+  const candidates = [proxyUrl, rawRemoteUrl, rawOriginalUrl, builtInPoster, svgFallback].filter((x, i, arr) => x && arr.indexOf(x) === i);
 
   let idx = 0;
   const img = document.createElement('img');
   img.className = 'cover-img';
-  img.alt = title || '';
+  img.alt = '';
+  img.style.opacity = '0';
   img.loading = 'lazy';
   img.referrerPolicy = 'no-referrer';
   img.onload = () => {
     initial.hidden = true;
-    node.style.background = '#edece7';
+    img.style.opacity = '1';
+    node.style.background = '#0f1526';
   };
   img.onerror = () => {
     idx += 1;
@@ -310,14 +459,281 @@ function el(tag, className, text) {
 
 /* ---------------- 列表与筛选 ---------------- */
 
+function updateMediaSummaryMap(files = []) {
+  const map = new Map();
+  for (const f of files) {
+    if (!f.anime_id) continue;
+    let rec = map.get(f.anime_id);
+    if (!rec) {
+      rec = { available: 0, missing: 0, pending: 0, total: 0 };
+      map.set(f.anime_id, rec);
+    }
+    rec.total += 1;
+    if (f.availability_status === 'missing') rec.missing += 1;
+    else if (f.availability_status === 'needs_review' || f.availability_status === 'unmatched') rec.pending += 1;
+    else rec.available += 1;
+  }
+  state.mediaSummaryByAnime = map;
+}
+
+function buildMediaStatusPill(animeId) {
+  const m = state.mediaSummaryByAnime.get(animeId);
+  if (!m || m.total === 0) return null;
+  if (m.missing > 0) {
+    const pill = el('span', 'media-status-pill missing', `▲ 本地缺失 ${m.missing}`);
+    pill.title = `该作品关联的本地视频中有 ${m.missing} 个文件缺失（已看进度完整保留）`;
+    return pill;
+  }
+  if (m.pending > 0) {
+    const pill = el('span', 'media-status-pill pending', `● 待确认 ${m.pending}`);
+    pill.title = `该作品有 ${m.pending} 个低置信度本地文件待确认`;
+    return pill;
+  }
+  const pill = el('span', 'media-status-pill ok', `● 本地 ${m.available}集`);
+  pill.title = `已关联 ${m.available} 个可用本地视频文件`;
+  return pill;
+}
+
+function computeStatusCounts() {
+  const src = Array.isArray(state.allLibraryList) && state.allLibraryList.length
+    ? state.allLibraryList
+    : state.list;
+  const counts = {
+    all: 0,
+    favorite: 0,
+    want: 0,
+    watching: 0,
+    completed: 0,
+    paused: 0,
+    dropped: 0
+  };
+  for (const it of src) {
+    if (it.deleted_at) continue;
+    counts.all += 1;
+    if (it.is_favorite) counts.favorite += 1;
+    if (counts[it.status] !== undefined) counts[it.status] += 1;
+  }
+  return counts;
+}
+
+function applyUiTheme(themeKey, { switchRecommendedLayout = false, silent = false } = {}) {
+  const ed = UI_EDITIONS.find((x) => x.key === themeKey) || UI_EDITIONS[0];
+  state.uiTheme = ed.key;
+  document.documentElement.setAttribute('data-ui-theme', ed.key);
+  document.body?.setAttribute('data-ui-theme', ed.key);
+  try {
+    localStorage.setItem(UI_THEME_STORAGE_KEY, ed.key);
+  } catch {
+    /* ignore */
+  }
+  if (switchRecommendedLayout && ed.recommendedLayout) {
+    state.layoutMode = ed.recommendedLayout;
+    try {
+      localStorage.setItem(UI_LAYOUT_STORAGE_KEY, ed.recommendedLayout);
+    } catch {
+      /* ignore */
+    }
+  }
+  renderUiQuickBar();
+  renderLayoutSwitcher();
+  renderStudioSidebar();
+  if (state.view === 'list') renderList();
+  else if (state.view === 'ui-studio') renderUiStudioView();
+  if (!silent) {
+    toast(`已切换至「${ed.name}」`);
+  }
+}
+
+function setLayoutMode(modeKey) {
+  const found = LAYOUT_MODES.find((m) => m.key === modeKey) || LAYOUT_MODES[0];
+  state.layoutMode = found.key;
+  try {
+    localStorage.setItem(UI_LAYOUT_STORAGE_KEY, found.key);
+  } catch {
+    /* ignore */
+  }
+  renderUiQuickBar();
+  renderLayoutSwitcher();
+  if (state.view === 'list') renderList();
+  else if (state.view === 'ui-studio') renderUiStudioView();
+}
+
+function renderUiQuickBar() {
+  const bar = $('#uiQuickBar');
+  if (!bar) return;
+  bar.hidden = true;
+  bar.innerHTML = '';
+  return;
+  const inner = el('div', 'ui-quick-inner');
+
+  const left = el('div', 'ui-quick-group');
+  left.appendChild(el('span', 'ui-quick-label', 'UI 视觉样本快切：'));
+  for (const ed of UI_EDITIONS) {
+    const btn = el('button', 'ui-theme-chip' + (state.uiTheme === ed.key ? ' active' : ''));
+    btn.type = 'button';
+    btn.title = `${ed.name} — ${ed.scene}`;
+    const dot = el('span', 'ui-theme-dot');
+    dot.style.background = ed.accent;
+    btn.appendChild(dot);
+    btn.appendChild(el('span', '', ed.shortName));
+    btn.addEventListener('click', () => {
+      applyUiTheme(ed.key, { switchRecommendedLayout: true });
+    });
+    left.appendChild(btn);
+  }
+
+  const right = el('div', 'ui-quick-group');
+  right.appendChild(el('span', 'ui-quick-label', '列表密度：'));
+  for (const lm of LAYOUT_MODES) {
+    const lbtn = el('button', 'ui-theme-chip' + (state.layoutMode === lm.key ? ' active' : ''), lm.label);
+    lbtn.type = 'button';
+    lbtn.title = lm.title;
+    lbtn.addEventListener('click', () => {
+      setLayoutMode(lm.key);
+      if (state.view !== 'list') switchView('list');
+    });
+    right.appendChild(lbtn);
+  }
+
+  const studioJumpBtn = el(
+    'button',
+    'ui-theme-chip' + (state.view === 'ui-studio' ? ' active' : ''),
+    state.view === 'ui-studio' ? '← 返回动画账本' : '对比 4 版 UI 样本 & 评估报告 →'
+  );
+  studioJumpBtn.type = 'button';
+  studioJumpBtn.addEventListener('click', () => {
+    switchView(state.view === 'ui-studio' ? 'list' : 'ui-studio');
+  });
+  right.appendChild(studioJumpBtn);
+
+  inner.appendChild(left);
+  inner.appendChild(right);
+  bar.appendChild(inner);
+}
+
+function renderLayoutSwitcher() {
+  const wrap = $('#layoutSwitcher');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (const lm of LAYOUT_MODES) {
+    const btn = el('button', 'layout-btn' + (state.layoutMode === lm.key ? ' active' : ''), lm.label);
+    btn.type = 'button';
+    btn.title = lm.title;
+    btn.addEventListener('click', () => setLayoutMode(lm.key));
+    wrap.appendChild(btn);
+  }
+}
+
+function renderStudioSidebar() {
+  const side = $('#studioSidebar');
+  if (!side) return;
+  side.innerHTML = '';
+
+  const brandRow = el('div', 'studio-side-brand');
+  const brandLeft = el('div', 'studio-side-brand-left');
+  const logoImg = document.createElement('img');
+  logoImg.src = '/icon.png';
+  logoImg.alt = '';
+  logoImg.className = 'studio-side-brand-logo';
+  brandLeft.appendChild(logoImg);
+  brandLeft.appendChild(el('span', '', '次元刻度'));
+  brandRow.appendChild(brandLeft);
+  brandRow.appendChild(el('span', 'studio-side-tag', 'SCREENING'));
+  side.appendChild(brandRow);
+
+  const counts = computeStatusCounts();
+  side.appendChild(el('div', 'studio-side-section', '放映室导航'));
+  const navItems = [
+    { key: 'list', label: '放映室主页 · 番剧库', badge: counts.all },
+    { key: 'seasonal', label: '新番导览 · 放送周历', badge: '双源' },
+    { key: 'stats', label: '观看记录 · 打卡热力图', badge: '统计' }
+  ];
+  for (const nav of navItems) {
+    const btn = el('button', 'studio-side-btn' + (state.view === nav.key ? ' active' : ''));
+    btn.type = 'button';
+    btn.appendChild(el('span', '', nav.label));
+    btn.appendChild(el('span', 'studio-side-count', String(nav.badge)));
+    btn.addEventListener('click', () => switchView(nav.key));
+    side.appendChild(btn);
+  }
+
+  side.appendChild(el('div', 'studio-side-section', '观看状态筛选'));
+  const statusItems = [
+    { key: '', label: '全部馆藏作品', count: counts.all },
+    { key: 'watching', label: '正在追番 (在看)', count: counts.watching },
+    { key: 'want', label: '待看清单 (想看)', count: counts.want },
+    { key: 'completed', label: '已看完归档', count: counts.completed },
+    { key: 'paused', label: '暂停搁置', count: counts.paused },
+    { key: '__favorite', label: '★ 特别收藏', count: counts.favorite }
+  ];
+  for (const stItem of statusItems) {
+    const isAct =
+      state.view === 'list' &&
+      !state.archived &&
+      (stItem.key === '__favorite' ? state.favorite : !state.favorite && state.status === stItem.key);
+    const btn = el('button', 'studio-side-btn' + (isAct ? ' active' : ''));
+    btn.type = 'button';
+    btn.appendChild(el('span', '', stItem.label));
+    btn.appendChild(el('span', 'studio-side-count', String(stItem.count)));
+    btn.addEventListener('click', () => {
+      state.archived = false;
+      if (stItem.key === '__favorite') {
+        state.favorite = true;
+        state.status = '';
+      } else {
+        state.favorite = false;
+        state.status = stItem.key;
+      }
+      renderTabs();
+      if (state.view !== 'list') switchView('list');
+      else load();
+    });
+    side.appendChild(btn);
+  }
+
+  side.appendChild(el('div', 'studio-side-section', '媒体库与数据管理'));
+  let mediaTotalCount = 0;
+  let mediaMissingCount = 0;
+  for (const m of state.mediaSummaryByAnime.values()) {
+    mediaTotalCount += m.total || 0;
+    mediaMissingCount += m.missing || 0;
+  }
+  const mediaBadge = mediaMissingCount > 0
+    ? `缺失${mediaMissingCount}`
+    : mediaTotalCount > 0
+      ? `${mediaTotalCount}集`
+      : '扫描';
+
+  const toolActions = [
+    { label: '本地媒体库与匹配结果', badge: mediaBadge, onClick: () => openMediaScanModal() },
+    { label: '生成年度总结/喜好表', badge: '海报', onClick: () => openShareGeneratorModal('poster') },
+    { label: '看板娘「刻度娘」档案', badge: '立绘', onClick: () => openMascotGalleryModal() },
+    { label: '数据源、云同步与设置', badge: '配置', onClick: () => openSettingsModal() }
+  ];
+  for (const t of toolActions) {
+    const btn = el('button', 'studio-side-btn');
+    btn.type = 'button';
+    btn.appendChild(el('span', '', t.label));
+    btn.appendChild(el('span', 'studio-side-count', t.badge));
+    btn.addEventListener('click', t.onClick);
+    side.appendChild(btn);
+  }
+
+  const foot = el('div', 'studio-side-footer');
+  foot.appendChild(el('div', '', '主题：深夜放映室 (Midnight)'));
+  foot.appendChild(el('div', '', '快捷键：/ 搜索 · 1/2/3 切视图 · m 媒体库'));
+  side.appendChild(foot);
+}
+
 function renderTabs() {
   const wrap = $('#tabs');
   wrap.innerHTML = '';
+  const counts = computeStatusCounts();
   const defs = [
-    { key: '', label: '全部' },
-    { key: '__favorite', label: '★ 收藏' },
-    ...Object.entries(STATUS_LABEL).map(([k, v]) => ({ key: k, label: v })),
-    { key: '__archived', label: '已归档' }
+    { key: '', label: '全部', count: counts.all },
+    { key: '__favorite', label: '★ 收藏', count: counts.favorite },
+    ...Object.entries(STATUS_LABEL).map(([k, v]) => ({ key: k, label: v, count: counts[k] ?? 0 })),
+    { key: '__archived', label: '已归档', count: null }
   ];
 
   for (const d of defs) {
@@ -326,8 +742,12 @@ function renderTabs() {
     else if (d.key === '__favorite') active = !state.archived && state.favorite;
     else active = !state.archived && !state.favorite && state.status === d.key;
 
-    const btn = el('button', 'tab' + (active ? ' active' : ''), d.label);
+    const btn = el('button', 'tab' + (active ? ' active' : ''));
     btn.type = 'button';
+    btn.appendChild(el('span', '', d.label));
+    if (d.count !== null && d.count > 0) {
+      btn.appendChild(el('span', 'tab-count', String(d.count)));
+    }
     btn.addEventListener('click', () => {
       if (d.key === '__archived') {
         state.archived = true;
@@ -343,6 +763,7 @@ function renderTabs() {
         state.status = d.key;
       }
       renderTabs();
+      renderStudioSidebar();
       load();
     });
     wrap.appendChild(btn);
@@ -477,8 +898,13 @@ function cardEl(item) {
   const cover = el('div', 'cover');
   paintCover(cover, item.canonical_title, item.cover_path);
 
-  const badge = el('span', 'badge', STATUS_LABEL[item.status] ?? '想看');
+  const stKey = item.status || 'want';
+  const badge = el('span', `badge status-${stKey}`, STATUS_LABEL[stKey] ?? '想看');
   cover.appendChild(badge);
+  const mediaPill = buildMediaStatusPill(item.id);
+  if (mediaPill) {
+    cover.appendChild(mediaPill);
+  }
 
   if (state.ledgerBatchMode) {
     const checkBadge = el('span', 'badge check-badge', '✓');
@@ -640,8 +1066,8 @@ function renderLedgerBatchBar() {
 
   const tagInput = document.createElement('input');
   tagInput.type = 'text';
+  tagInput.className = 'ui-input-compact';
   tagInput.placeholder = '输入标签(逗号分隔)';
-  tagInput.style.cssText = 'height:30px;width:140px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;font-size:12px;';
   tagInput.disabled = selectedCount === 0;
   right.appendChild(tagInput);
 
@@ -701,18 +1127,543 @@ function renderLedgerBatchBar() {
   bar.appendChild(right);
 }
 
+
+const MASCOT_QUOTES = [
+  "今天也来翻开手账记一集吧！每看一集都是属于你的次元刻度～",
+  "小贴士：点击「+1」会自动帮你点亮最早还没看的那一集缺口哦！",
+  "想换个风格或布局？顶栏可一键切换 4 款主题与「海报网格 / 高密台账 / 状态看板」（快捷键 1/2/3）！",
+  "在新番导览里点任意卡片可以预览完整简介，点「批量选择」能一次勾选多部入库～",
+  "硬盘里存了字幕组视频？点顶部「本地识别」就能自动清洗文件名并关联集数！"
+];
+let mascotQuoteIdx = 0;
+
+function getMascotContextQuote(watchingItems) {
+  if (!watchingItems || watchingItems.length === 0) {
+    return "当前还没有「在看」的番剧，挑一部正在追的番点亮焦点舱吧！";
+  }
+  const top = watchingItems[0];
+  const total = Number(top.episode_total ?? 0);
+  const watched = Number(top.episode_watched ?? 0);
+  const current = Number(top.episode_current ?? 0);
+  if (total > 0 && watched < total) {
+    const nextEp = Math.min(total, (current || watched) + 1);
+    return `刻度娘伴读：正在追《<strong>${escapeHtml(top.canonical_title)}</strong>》，下一集 EP.${nextEp}，看完点 +1 盖章打卡哦！`;
+  }
+  return `刻度娘伴读：当前共 <strong>${watchingItems.length}</strong> 部番剧在看，点我查看 AI 娘化立绘档案～`;
+}
+
+function openMascotGalleryModal() {
+  state.editingId = null;
+  $("#modal .modal-card")?.classList.add("wide-card");
+  $("#modalTitle").textContent = "次元刻度 · 拟人化看板娘「刻度娘 (Kedu-chan)」角色立绘档案";
+
+  const form = $("#animeForm");
+  form.innerHTML = `
+    <div>
+      <div class="ep-hint" style="margin-bottom:12px">
+        <strong>刻度娘 (Kedu-chan)</strong> 是「次元刻度 · 深夜放映室」的专属 AI 拟人化看板娘（Gijinka）。她随身携带着<strong>黄金刻度尺发卡</strong>、<strong>35mm 动画胶片领结</strong>、<strong>追番手账簿</strong>与<strong>「+1 集 / 已看完」大印章</strong>，在放映室焦点舱陪伴你记录每一部动画的感动时刻。
+      </div>
+      <div class="mascot-gallery-grid">
+        <div class="mascot-gallery-card">
+          <img src="/mascot-kedu1.jpg" alt="刻度娘·贝雷帽场记板立绘">
+          <div class="watching-mini-name">形象 I：场记板手账司书</div>
+          <div class="ep-hint">呆毛 + 黄金刻度章贝雷帽 + 刻度尺领带 + Q版「+1集」印章</div>
+        </div>
+        <div class="mascot-gallery-card">
+          <img src="/mascot-kedu2.jpg" alt="刻度娘·猫耳双马尾女仆装立绘">
+          <div class="watching-mini-name">形象 II：猫耳监听耳机伴读娘</div>
+          <div class="ep-hint">播放键猫耳耳机 + 35mm胶片领结 + 刻度围裙 + Q版「已看完✓」盖章</div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn primary" id="closeMascotModalBtn">返回深夜放映室</button>
+      </div>
+    </div>
+  `;
+  $("#closeMascotModalBtn")?.addEventListener("click", () => {
+    closeForm();
+  });
+  $("#modal").hidden = false;
+}
+
+function renderWatchingFocusStrip() {
+  const strip = $('#watchingFocusStrip');
+  if (!strip) return;
+  if (state.view !== 'list' || state.archived || state.keyword || state.status === 'completed') {
+    strip.hidden = true;
+    strip.innerHTML = '';
+    return;
+  }
+  const sourceList = state.allLibraryList.length ? state.allLibraryList : state.list;
+  const watchingItems = sourceList.filter((it) => !it.deleted_at && it.status === 'watching');
+  if (watchingItems.length === 0) {
+    strip.hidden = true;
+    strip.innerHTML = '';
+    return;
+  }
+
+  strip.hidden = false;
+  strip.innerHTML = '';
+
+  const head = el('div', 'watching-focus-head');
+  const titleWrap = el('div', 'watching-focus-title');
+  titleWrap.appendChild(el('span', 'watching-focus-dot'));
+  titleWrap.appendChild(el('span', '', `正在追番 · 快捷打卡 (${watchingItems.length} 部)`));
+  head.appendChild(titleWrap);
+
+  const rightWrap = el('div', 'inline-row');
+  const mascotCompanion = el('div', 'watching-mascot-companion');
+  mascotCompanion.title = '点击查看看板娘「刻度娘 (Kedu-chan)」AI 娘化立绘档案';
+  const mImg = document.createElement('img');
+  mImg.src = '/mascot-chibi.png';
+  mImg.alt = '刻度娘';
+  mImg.className = 'watching-mascot-avatar';
+  const mSpeech = el('span', 'watching-mascot-speech');
+  mSpeech.innerHTML = getMascotContextQuote(watchingItems);
+  mascotCompanion.appendChild(mImg);
+  mascotCompanion.appendChild(mSpeech);
+  mascotCompanion.addEventListener('click', () => openMascotGalleryModal());
+  rightWrap.appendChild(mascotCompanion);
+
+  if (watchingItems.length > 4) {
+    const expandBtn = el(
+      'button',
+      'link-btn',
+      state.watchingStripExpanded ? '收起展示前 4 部' : `展开全部 (${watchingItems.length} 部)`
+    );
+    expandBtn.type = 'button';
+    expandBtn.addEventListener('click', () => {
+      state.watchingStripExpanded = !state.watchingStripExpanded;
+      renderWatchingFocusStrip();
+    });
+    rightWrap.appendChild(expandBtn);
+  }
+  head.appendChild(rightWrap);
+  strip.appendChild(head);
+
+  const cardsWrap = el('div', 'watching-focus-cards');
+  const displayItems = state.watchingStripExpanded ? watchingItems : watchingItems.slice(0, 4);
+  for (const item of displayItems) {
+    const mini = el('div', 'watching-mini-card');
+    const cov = el('div', 'watching-mini-cover');
+    paintCover(cov, item.canonical_title, item.cover_path, 100);
+    mini.appendChild(cov);
+
+    const info = el('div', 'watching-mini-info');
+    info.appendChild(el('div', 'watching-mini-name', item.canonical_title));
+    const total = Number(item.episode_total ?? 0);
+    const current = Number(item.episode_current ?? 0);
+    const watched = Number(item.episode_watched ?? 0);
+    const subRow = el('div', 'watching-mini-sub');
+    const nextEpNum = total > 0 && watched < total ? Math.min(total, (current || watched) + 1) : null;
+    subRow.appendChild(
+      el(
+        'span',
+        '',
+        total > 0
+          ? `已看 ${watched}/${total} 集${nextEpNum ? ` · 下一集 EP.${nextEpNum}` : ' · 已看完'}`
+          : '未设总集数 · 点击设置'
+      )
+    );
+    const mediaPill = buildMediaStatusPill(item.id);
+    if (mediaPill) subRow.appendChild(mediaPill);
+    info.appendChild(subRow);
+
+    if (total > 0) {
+      const miniBar = el('div', 'progress-bar watching-mini-bar');
+      const miniFill = el('div', 'progress-fill');
+      miniFill.style.width = `${Math.min(100, Math.round((watched / total) * 100))}%`;
+      miniBar.appendChild(miniFill);
+      info.appendChild(miniBar);
+    }
+    mini.appendChild(info);
+
+    if (total > 0) {
+      const done = watched >= total;
+      const bump = el('button', 'card-bump' + (done ? ' done' : ''), done ? '✓' : '+1');
+      bump.type = 'button';
+      bump.disabled = done;
+      bump.title = done ? '已看完' : '记一集';
+      bump.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        bump.disabled = true;
+        try {
+          const res = await api(`/api/anime/${item.id}/progress`, {
+            method: 'POST',
+            body: { action: 'next' }
+          });
+          if (res.changed) {
+            toast(`「${item.canonical_title}」第 ${res.changed.episode_number} 集已记`);
+          }
+          if (res.progress?.at_end && item.status !== 'completed') {
+            const ok = await askConfirm({
+              title: '全集观看完成',
+              message: `「${item.canonical_title}」全部 ${res.progress.total} 集都已看完，要把作品状态改为「已看完」吗？`,
+              confirmText: '改为已看完',
+              danger: false
+            });
+            if (ok) {
+              await api(`/api/anime/${item.id}/status`, {
+                method: 'POST',
+                body: { status: 'completed' }
+              });
+              toast(`已将「${item.canonical_title}」标为「已看完」`);
+            }
+          }
+          await load();
+        } catch (err) {
+          toast(err.message, true);
+          bump.disabled = false;
+        }
+      });
+      mini.appendChild(bump);
+    }
+
+    mini.addEventListener('click', () => openDetail(item.id));
+    cardsWrap.appendChild(mini);
+  }
+  strip.appendChild(cardsWrap);
+}
+
+function renderActiveFilterBar(listEl) {
+  const hasFilter =
+    Boolean(state.keyword) ||
+    Boolean(state.tag) ||
+    Boolean(state.status) ||
+    Boolean(state.favorite) ||
+    Boolean(state.archived);
+  if (!hasFilter) return;
+
+  const bar = el('div', 'active-filter-bar');
+  const chips = el('div', 'active-filter-chips');
+  chips.appendChild(el('strong', '', '当前筛选：'));
+
+  if (state.archived) {
+    chips.appendChild(el('span', 'active-filter-pill', '状态：已归档'));
+  } else if (state.favorite) {
+    chips.appendChild(el('span', 'active-filter-pill', '★ 特别收藏'));
+  } else if (state.status) {
+    chips.appendChild(el('span', 'active-filter-pill', `状态：${STATUS_LABEL[state.status]}`));
+  }
+  if (state.tag) {
+    chips.appendChild(el('span', 'active-filter-pill', `标签：#${state.tag}`));
+  }
+  if (state.keyword) {
+    chips.appendChild(el('span', 'active-filter-pill', `搜索：「${state.keyword}」`));
+  }
+  chips.appendChild(el('span', 'ep-hint', `命中 ${state.list.length} 部`));
+  bar.appendChild(chips);
+
+  const resetBtn = el('button', 'btn small ghost', '× 重置全部筛选');
+  resetBtn.type = 'button';
+  resetBtn.addEventListener('click', () => {
+    state.keyword = '';
+    state.tag = '';
+    state.status = '';
+    state.favorite = false;
+    state.archived = false;
+    const qInput = $('#q');
+    if (qInput) qInput.value = '';
+    const clearBtn = $('#searchClearBtn');
+    if (clearBtn) clearBtn.hidden = true;
+    const tagSel = $('#tagFilter');
+    if (tagSel) tagSel.value = '';
+    renderTabs();
+    renderStudioSidebar();
+    load();
+  });
+  bar.appendChild(resetBtn);
+  listEl.parentElement?.insertBefore(bar, listEl);
+}
+
+function renderTableList(listEl) {
+  listEl.className = 'ledger-table-container';
+  const wrap = el('div', 'ledger-table-wrap');
+  const table = el('table', 'ledger-table');
+  const thead = document.createElement('thead');
+  thead.innerHTML = `
+    <tr>
+      <th>作品名称</th>
+      <th>状态快改</th>
+      <th>年份 / 类型</th>
+      <th>标签</th>
+      <th style="min-width:190px">分集进度</th>
+      <th>个人评分</th>
+      <th>操作</th>
+    </tr>
+  `;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  for (const item of state.list) {
+    const tr = document.createElement('tr');
+    if (state.ledgerBatchMode && state.ledgerSelected.has(item.id)) {
+      tr.className = 'selected-row';
+    }
+
+    const tdTitle = document.createElement('td');
+    const titleCell = el('div', 'table-title-cell');
+    const thumb = el('div', 'table-thumb');
+    paintCover(thumb, item.canonical_title, item.cover_path, 100);
+    titleCell.appendChild(thumb);
+    const nameWrap = el('div', '');
+    nameWrap.appendChild(
+      el(
+        'div',
+        'watching-mini-name',
+        (item.is_favorite ? '★ ' : '') + item.canonical_title
+      )
+    );
+    if (item.synopsis) {
+      const syn = el('div', 'ep-hint', item.synopsis.slice(0, 34) + (item.synopsis.length > 34 ? '…' : ''));
+      syn.style.marginTop = '2px';
+      nameWrap.appendChild(syn);
+    }
+    titleCell.appendChild(nameWrap);
+    tdTitle.appendChild(titleCell);
+    tr.appendChild(tdTitle);
+
+    const tdStatus = document.createElement('td');
+    const statusSelect = document.createElement('select');
+    statusSelect.className = 'table-status-select';
+    statusSelect.title = '直接切换观看状态';
+    for (const [sKey, sLabel] of Object.entries(STATUS_LABEL)) {
+      const opt = document.createElement('option');
+      opt.value = sKey;
+      opt.textContent = sLabel;
+      if ((item.status || 'want') === sKey) opt.selected = true;
+      statusSelect.appendChild(opt);
+    }
+    statusSelect.addEventListener('click', (e) => e.stopPropagation());
+    statusSelect.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      const nextSt = statusSelect.value;
+      try {
+        await api(`/api/anime/${item.id}/status`, {
+          method: 'POST',
+          body: { status: nextSt }
+        });
+        toast(`已将「${item.canonical_title}」状态改为「${STATUS_LABEL[nextSt]}」`);
+        await load();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+    tdStatus.appendChild(statusSelect);
+    tr.appendChild(tdStatus);
+
+    const tdMeta = document.createElement('td');
+    const metaWrap = el('div', 'watching-mini-sub');
+    metaWrap.appendChild(el('span', '', `${item.release_year || '—'} · ${TYPE_LABEL[item.anime_type] ?? 'TV'}`));
+    const rowMediaPill = buildMediaStatusPill(item.id);
+    if (rowMediaPill) metaWrap.appendChild(rowMediaPill);
+    tdMeta.appendChild(metaWrap);
+    tr.appendChild(tdMeta);
+
+    const tdTags = document.createElement('td');
+    const tagNames = String(item.tag_names || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (tagNames.length > 0) {
+      const tagList = el('div', 'table-tag-list');
+      for (const tName of tagNames.slice(0, 3)) {
+        const chip = el('button', 'table-tag-chip', `#${tName}`);
+        chip.type = 'button';
+        chip.title = `按标签「${tName}」筛选`;
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.tag = tName;
+          const sel = $('#tagFilter');
+          if (sel) sel.value = tName;
+          load();
+        });
+        tagList.appendChild(chip);
+      }
+      tdTags.appendChild(tagList);
+    } else {
+      tdTags.innerHTML = '<span style="color:var(--faint)">—</span>';
+    }
+    tr.appendChild(tdTags);
+
+    const tdProg = document.createElement('td');
+    tdProg.appendChild(cardProgressEl(item));
+    tr.appendChild(tdProg);
+
+    const tdRating = document.createElement('td');
+    tdRating.innerHTML = item.rating
+      ? `<strong style="color:var(--accent)">★ ${item.rating}</strong> / 10`
+      : '<span style="color:var(--faint)">未评</span>';
+    tr.appendChild(tdRating);
+
+    const tdAct = document.createElement('td');
+    const actRow = el('div', 'inline-row');
+    const favBtn = el('button', 'table-fav-btn' + (item.is_favorite ? ' active' : ''), item.is_favorite ? '★' : '☆');
+    favBtn.type = 'button';
+    favBtn.title = item.is_favorite ? '取消特别收藏' : '设为特别收藏';
+    favBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const nextFav = !item.is_favorite;
+        await api(`/api/anime/${item.id}/status`, {
+          method: 'POST',
+          body: { is_favorite: nextFav }
+        });
+        item.is_favorite = nextFav;
+        toast(nextFav ? `已收藏「${item.canonical_title}」` : `已取消收藏「${item.canonical_title}」`);
+        await load();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+    actRow.appendChild(favBtn);
+
+    const detailBtn = el('button', 'link-btn', '详情 →');
+    detailBtn.type = 'button';
+    detailBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDetail(item.id);
+    });
+    actRow.appendChild(detailBtn);
+    tdAct.appendChild(actRow);
+    tr.appendChild(tdAct);
+
+    tr.addEventListener('click', () => {
+      if (state.ledgerBatchMode) {
+        if (state.ledgerSelected.has(item.id)) state.ledgerSelected.delete(item.id);
+        else state.ledgerSelected.add(item.id);
+        renderList();
+        return;
+      }
+      openDetail(item.id);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  listEl.appendChild(wrap);
+}
+
+function renderBoardList(listEl) {
+  listEl.className = 'kanban-board';
+  const columns = [
+    { key: 'watching', title: '正在追番 (在看)', filter: (it) => it.status === 'watching' },
+    { key: 'want', title: '待看清单 (想看)', filter: (it) => it.status === 'want' },
+    { key: 'completed', title: '已看完归档', filter: (it) => it.status === 'completed' },
+    {
+      key: 'other',
+      title: '暂停 / 弃番',
+      filter: (it) => it.status === 'paused' || it.status === 'dropped'
+    }
+  ];
+
+  const quickMoveStatus = async (item, targetStatus, e) => {
+    e.stopPropagation();
+    try {
+      await api(`/api/anime/${item.id}/status`, {
+        method: 'POST',
+        body: { status: targetStatus }
+      });
+      toast(`已将「${item.canonical_title}」移至「${STATUS_LABEL[targetStatus]}」`);
+      await load();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+
+  for (const col of columns) {
+    const colEl = el('div', 'kanban-col');
+    const items = state.list.filter(col.filter);
+    const head = el('div', 'kanban-col-head');
+    head.appendChild(el('span', '', col.title));
+    head.appendChild(el('span', 'kanban-col-count', `${items.length} 部`));
+    colEl.appendChild(head);
+
+    const body = el('div', 'kanban-col-list');
+    if (items.length === 0) {
+      const emptyNote = el('div', 'ep-hint', '暂无此状态作品');
+      emptyNote.style.padding = '16px 4px';
+      emptyNote.style.textAlign = 'center';
+      body.appendChild(emptyNote);
+    } else {
+      for (const item of items) {
+        const kCard = el('div', 'kanban-item');
+        const cov = el('div', 'watching-mini-cover');
+        paintCover(cov, item.canonical_title, item.cover_path, 100);
+        kCard.appendChild(cov);
+
+        const info = el('div', 'watching-mini-info');
+        info.appendChild(
+          el('div', 'watching-mini-name', (item.is_favorite ? '★ ' : '') + item.canonical_title)
+        );
+        const kSub = el('div', 'watching-mini-sub');
+        kSub.appendChild(
+          el(
+            'span',
+            '',
+            `${item.release_year || '—'} · ${TYPE_LABEL[item.anime_type] ?? 'TV'}${
+              item.rating ? ` · ★ ${item.rating}` : ''
+            }`
+          )
+        );
+        const kMediaPill = buildMediaStatusPill(item.id);
+        if (kMediaPill) kSub.appendChild(kMediaPill);
+        info.appendChild(kSub);
+        info.appendChild(cardProgressEl(item));
+
+        const qActions = el('div', 'kanban-quick-actions');
+        if (item.status === 'want') {
+          const toWatch = el('button', 'kanban-mini-btn', '▶ 开始追番');
+          toWatch.type = 'button';
+          toWatch.addEventListener('click', (e) => quickMoveStatus(item, 'watching', e));
+          qActions.appendChild(toWatch);
+        } else if (item.status === 'watching') {
+          const toDone = el('button', 'kanban-mini-btn', '✓ 标为看完');
+          toDone.type = 'button';
+          toDone.addEventListener('click', (e) => quickMoveStatus(item, 'completed', e));
+          qActions.appendChild(toDone);
+          const toPause = el('button', 'kanban-mini-btn', '⏸ 暂停');
+          toPause.type = 'button';
+          toPause.addEventListener('click', (e) => quickMoveStatus(item, 'paused', e));
+          qActions.appendChild(toPause);
+        } else if (item.status === 'paused' || item.status === 'dropped') {
+          const toResume = el('button', 'kanban-mini-btn', '↻ 恢复在看');
+          toResume.type = 'button';
+          toResume.addEventListener('click', (e) => quickMoveStatus(item, 'watching', e));
+          qActions.appendChild(toResume);
+        }
+        if (qActions.childNodes.length > 0) {
+          info.appendChild(qActions);
+        }
+
+        kCard.appendChild(info);
+
+        kCard.addEventListener('click', () => openDetail(item.id));
+        body.appendChild(kCard);
+      }
+    }
+    colEl.appendChild(body);
+    listEl.appendChild(colEl);
+  }
+}
+
 function renderList() {
   const listEl = $('#list');
   listEl.innerHTML = '';
+  document.querySelectorAll('.active-filter-bar').forEach((n) => n.remove());
 
-  // 清理不在当前列表中的已勾选 ID
   const validIds = new Set(state.list.map((it) => it.id));
   for (const id of [...state.ledgerSelected]) {
     if (!validIds.has(id)) state.ledgerSelected.delete(id);
   }
   renderLedgerBatchBar();
+  renderWatchingFocusStrip();
+  if (state.view === 'list') {
+    renderActiveFilterBar(listEl);
+  }
 
   if (state.list.length === 0) {
+    listEl.className = 'grid';
     $('#empty').hidden = false;
     if (state.archived) {
       $('#emptyTitle').textContent = '没有已归档的作品';
@@ -735,7 +1686,14 @@ function renderList() {
     }
   } else {
     $('#empty').hidden = true;
-    for (const item of state.list) listEl.appendChild(cardEl(item));
+    if (state.layoutMode === 'table') {
+      renderTableList(listEl);
+    } else if (state.layoutMode === 'board') {
+      renderBoardList(listEl);
+    } else {
+      listEl.className = 'grid';
+      for (const item of state.list) listEl.appendChild(cardEl(item));
+    }
   }
 
   $('#stat').textContent = state.ledgerBatchMode
@@ -745,7 +1703,7 @@ function renderList() {
 
 async function load() {
   if (state.loading) return;
-  if (state.view === 'stats') return;
+  if (state.view === 'stats' || state.view === 'ui-studio') return;
   state.loading = true;
   $('#loading').hidden = false;
 
@@ -759,8 +1717,24 @@ async function load() {
     if (state.archived) params.set('archived', '1');
     if (state.favorite) params.set('favorite', '1');
 
-    const res = await api(`/api/anime?${params.toString()}`);
+    const [res, fullRes, mediaRes] = await Promise.all([
+      api(`/api/anime?${params.toString()}`),
+      !state.keyword && !state.status && !state.tag && !state.archived && !state.favorite
+        ? Promise.resolve(null)
+        : api('/api/anime').catch(() => null),
+      api('/api/media/files').catch(() => null)
+    ]);
     state.list = res.data ?? [];
+    if (fullRes?.data) {
+      state.allLibraryList = fullRes.data;
+    } else if (!state.keyword && !state.status && !state.tag && !state.archived && !state.favorite) {
+      state.allLibraryList = state.list;
+    }
+    if (mediaRes?.data) {
+      updateMediaSummaryMap(mediaRes.data);
+    }
+    renderTabs();
+    renderStudioSidebar();
     renderList();
     refreshTagsFilter();
   } catch (err) {
@@ -847,8 +1821,16 @@ function renderDrawer(detail) {
     anime_type: '类型',
     default_episode_duration_minutes: '时长'
   };
-  const lockRow = el('div', 'ep-hint');
-  lockRow.style.cssText = 'margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;';
+  const dualStatusRow = el('div', 'watching-mini-sub');
+  const curStKey = st?.status || 'want';
+  const stPill = el('span', `media-tag`, `观看状态：${STATUS_LABEL[curStKey] || '想看'}`);
+  dualStatusRow.appendChild(stPill);
+  const dMediaPill = buildMediaStatusPill(anime.id);
+  if (dMediaPill) dualStatusRow.appendChild(dMediaPill);
+  else dualStatusRow.appendChild(el('span', 'ep-hint', '本地文件：未关联'));
+  headInfo.appendChild(dualStatusRow);
+
+  const lockRow = el('div', 'detail-lock-row');
   if (lockedFields.length > 0) {
     const names = lockedFields.map((k) => FIELD_LOCK_LABEL[k] || k).join('、');
     lockRow.appendChild(
@@ -898,9 +1880,7 @@ function renderDrawer(detail) {
     const hint = detail.consistency_hint;
     const targetStatusLabel = STATUS_LABEL[hint.suggested_status] || hint.suggested_status;
     const curStatusLabel = STATUS_LABEL[st?.status] || st?.status || '想看';
-    const banner = el('div', '');
-    banner.style.cssText =
-      'padding:8px 10px;background:var(--accent-soft);border:1px solid var(--line-strong);border-radius:7px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+    const banner = el('div', 'consistency-banner');
     const msgText = hint.message.replace(`「${st?.status}」`, `「${curStatusLabel}」`);
     banner.appendChild(el('span', '', `提示：${msgText}`));
     const applyHintBtn = el('button', 'btn small primary', `标为「${targetStatusLabel}」`);
@@ -998,10 +1978,9 @@ function renderDrawer(detail) {
   // 标签
   const tagInput = document.createElement('input');
   tagInput.type = 'text';
+  tagInput.className = 'drawer-input';
   tagInput.placeholder = '用逗号分隔，例如：治愈, 奇幻';
   tagInput.value = (tags ?? []).map((t) => t.name).join(', ');
-  tagInput.style.cssText =
-    'width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;';
   tagInput.addEventListener('change', async () => {
     const names = tagInput.value
       .split(/[,，]/)
@@ -1021,10 +2000,9 @@ function renderDrawer(detail) {
   // 作品别名 (Aliases)
   const aliasInput = document.createElement('input');
   aliasInput.type = 'text';
+  aliasInput.className = 'drawer-input';
   aliasInput.placeholder = '别名/原名/简称，逗号分隔（用于搜索与本地文件匹配）';
   aliasInput.value = (detail.aliases ?? []).map((a) => a.alias).join(', ');
-  aliasInput.style.cssText =
-    'width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;';
   aliasInput.addEventListener('change', async () => {
     const aliases = aliasInput.value
       .split(/[,，]/)
@@ -1042,10 +2020,9 @@ function renderDrawer(detail) {
 
   // 备注
   const notes = document.createElement('textarea');
+  notes.className = 'drawer-textarea';
   notes.value = st?.notes ?? '';
   notes.placeholder = '想记点什么就写在这里';
-  notes.style.cssText =
-    'width:100%;min-height:70px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;resize:vertical;';
   notes.addEventListener('change', async () => {
     try {
       await api(`/api/anime/${anime.id}/status`, {
@@ -1070,12 +2047,9 @@ function renderDrawer(detail) {
   if (Array.isArray(detail.watch_events) && detail.watch_events.length > 0) {
     const evWrap = el('div', 'field');
     evWrap.appendChild(el('div', 'field-label', '最近观看操作记录'));
-    const evList = el('div', '');
-    evList.style.cssText =
-      'display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto;padding:6px 8px;background:var(--bg);border:1px solid var(--line);border-radius:7px;font-size:11px;color:var(--ink-2);';
+    const evList = el('div', 'watch-events-box');
     for (const ev of detail.watch_events.slice(0, 6)) {
-      const row = el('div', '');
-      row.style.cssText = 'display:flex;justify-content:space-between;gap:8px;';
+      const row = el('div', 'watch-event-row');
       row.appendChild(el('span', '', ev.detail || ev.event_type));
       row.appendChild(
         el(
@@ -1140,15 +2114,12 @@ function buildDiscoveryField(title, animeId) {
     labelRow.appendChild(rightBtns);
     wrap.appendChild(labelRow);
 
-    const customRssBar = el('div', '');
+    const customRssBar = el('div', 'rss-custom-bar');
     customRssBar.hidden = true;
-    customRssBar.style.cssText =
-      'display:flex;gap:6px;margin-bottom:6px;padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:6px;align-items:center;flex-wrap:wrap;';
     const rssUrlInput = document.createElement('input');
     rssUrlInput.type = 'text';
+    rssUrlInput.className = 'ui-input-compact';
     rssUrlInput.placeholder = '输入字幕组专属 RSS 链接（留空则按作品名搜索）';
-    rssUrlInput.style.cssText =
-      'flex:1;min-width:160px;height:26px;padding:0 8px;border:1px solid var(--line-strong);border-radius:5px;font-size:12px;';
     const fetchCustomBtn = el('button', 'btn small', '拉取');
     fetchCustomBtn.type = 'button';
     customRssBar.appendChild(rssUrlInput);
@@ -1284,28 +2255,18 @@ function buildClientSideFansubGroups(items = []) {
 }
 
 function renderSingleRssRow(it) {
-  const row = el('div', '');
-  row.style.cssText =
-    'padding:6px 8px;background:#fff;border:1px solid var(--line);border-radius:5px;font-size:11px;display:flex;flex-direction:column;gap:4px;';
-
-  const topLine = el('div', '');
-  topLine.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:6px;';
-
-  const titleEl = el('div', '', it.title);
-  titleEl.style.cssText = 'font-weight:500;color:var(--ink);word-break:break-all;line-height:1.35;';
+  const row = el('div', 'rss-item-row');
+  const topLine = el('div', 'rss-item-top');
+  const titleEl = el('div', 'rss-item-title', it.title);
   topLine.appendChild(titleEl);
 
   if (it.episode_number) {
-    const epBadge = el('span', '', `第${it.episode_number}集`);
-    epBadge.style.cssText =
-      'flex-shrink:0;padding:1px 5px;background:var(--accent-soft);color:var(--accent);border-radius:4px;font-weight:600;font-size:10px;';
+    const epBadge = el('span', 'rss-ep-badge', `第${it.episode_number}集`);
     topLine.appendChild(epBadge);
   }
   row.appendChild(topLine);
 
-  const metaRow = el('div', '');
-  metaRow.style.cssText =
-    'display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;color:var(--ink-3);';
+  const metaRow = el('div', 'rss-item-meta');
   const badges = [
     it.fansub ? `[${it.fansub}]` : null,
     it.resolution,
@@ -1367,13 +2328,10 @@ function renderRssResourceList(host, res, animeId = null) {
       ? selectedFansub
       : '__ALL_GROUPED__';
 
-  const box = el('div', '');
-  box.style.cssText =
-    'margin-top:8px;padding:8px;background:var(--bg);border:1px solid var(--line);border-radius:7px;display:flex;flex-direction:column;gap:8px;';
+  const box = el('div', 'rss-box');
 
   // 顶部统计与字幕组分类导航栏
-  const headerRow = el('div', '');
-  headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;';
+  const headerRow = el('div', 'media-group-head');
   headerRow.appendChild(
     el(
       'div',
@@ -1426,17 +2384,11 @@ function renderRssResourceList(host, res, animeId = null) {
   if (activeFansub === '__ALL_GROUPED__') {
     // 按字幕组分块折叠展示，清晰区分各字幕组压制版本
     for (const g of groups) {
-      const groupCard = el('div', '');
-      groupCard.style.cssText =
-        'border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);overflow:hidden;';
-
-      const groupHead = el('div', '');
-      groupHead.style.cssText =
-        'padding:6px 8px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;';
+      const groupCard = el('div', 'rss-group-card');
+      const groupHead = el('div', 'rss-group-head');
 
       const leftInfo = el('div', 'inline-row');
       const nameTag = el('strong', '', `【${g.fansub}】`);
-      nameTag.style.cssText = 'font-size:12px;color:var(--ink);';
       leftInfo.appendChild(nameTag);
 
       const specs = [
@@ -1458,8 +2410,7 @@ function renderRssResourceList(host, res, animeId = null) {
 
       groupCard.appendChild(groupHead);
 
-      const groupBody = el('div', '');
-      groupBody.style.cssText = 'padding:6px;display:flex;flex-direction:column;gap:5px;';
+      const groupBody = el('div', 'rss-group-body');
       for (const it of g.items.slice(0, 12)) {
         groupBody.appendChild(renderSingleRssRow(it));
       }
@@ -1482,7 +2433,7 @@ function renderRssResourceList(host, res, animeId = null) {
     if (targetGroup) {
       const subBar = el('div', '');
       subBar.style.cssText =
-        'padding:6px 8px;background:#fff;border:1px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;';
+        'padding:6px 8px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;';
       const specText = [
         `字幕组：${targetGroup.fansub}`,
         `共 ${targetGroup.count} 条`,
@@ -1723,6 +2674,46 @@ function renderEpisodeBlock(view) {
     if (p.at_end) bits.push('已看完');
     summary.appendChild(el('span', 'ep-hint', bits.join(' · ')));
 
+    if (!p.at_end) {
+      const nextEpNum = p.next_episode || p.current + 1;
+      const nextBtn = el('button', 'btn small primary', `+1 记第 ${nextEpNum} 集`);
+      nextBtn.type = 'button';
+      nextBtn.style.marginLeft = 'auto';
+      nextBtn.addEventListener('click', async () => {
+        nextBtn.disabled = true;
+        try {
+          const res = await api(`/api/anime/${view.anime_id}/progress`, {
+            method: 'POST',
+            body: { action: 'next' }
+          });
+          if (res.changed) toast(`已记第 ${res.changed.episode_number} 集`);
+          if (res.progress?.at_end) {
+            const curItem = state.list.find((x) => x.id === view.anime_id);
+            if (!curItem || curItem.status !== 'completed') {
+              const ok = await askConfirm({
+                title: '全集观看完成',
+                message: `「${view.title || '本剧'}」全部 ${res.progress.total} 集都已看完，要把作品状态改为「已看完」吗？`,
+                confirmText: '改为已看完',
+                danger: false
+              });
+              if (ok) {
+                await api(`/api/anime/${view.anime_id}/status`, {
+                  method: 'POST',
+                  body: { status: 'completed' }
+                });
+                toast('已将作品标为「已看完」');
+              }
+            }
+          }
+          await refresh();
+        } catch (err) {
+          toast(err.message, true);
+          nextBtn.disabled = false;
+        }
+      });
+      summary.appendChild(nextBtn);
+    }
+
     const undoBtn = el('button', 'link-btn', '撤销上一集 (-1)');
     undoBtn.type = 'button';
     undoBtn.title = '撤销最后一集已看记录';
@@ -1743,6 +2734,42 @@ function renderEpisodeBlock(view) {
     summary.appendChild(undoBtn);
   } else {
     summary.appendChild(el('span', 'ep-hint', `共 ${p.total} 集，还没开始看`));
+    const firstBtn = el('button', 'btn small primary', '+1 记第 1 集');
+    firstBtn.type = 'button';
+    firstBtn.style.marginLeft = 'auto';
+    firstBtn.addEventListener('click', async () => {
+      firstBtn.disabled = true;
+      try {
+          const res = await api(`/api/anime/${view.anime_id}/progress`, {
+            method: 'POST',
+            body: { action: 'next' }
+          });
+          if (res.changed) toast(`已记第 ${res.changed.episode_number} 集`);
+          if (res.progress?.at_end) {
+            const curItem = state.list.find((x) => x.id === view.anime_id);
+            if (!curItem || curItem.status !== 'completed') {
+              const ok = await askConfirm({
+                title: '全集观看完成',
+                message: `「${view.title || '本剧'}」全部 ${res.progress.total} 集都已看完，要把作品状态改为「已看完」吗？`,
+                confirmText: '改为已看完',
+                danger: false
+              });
+              if (ok) {
+                await api(`/api/anime/${view.anime_id}/status`, {
+                  method: 'POST',
+                  body: { status: 'completed' }
+                });
+                toast('已将作品标为「已看完」');
+              }
+            }
+          }
+          await refresh();
+      } catch (err) {
+        toast(err.message, true);
+        firstBtn.disabled = false;
+      }
+    });
+    summary.appendChild(firstBtn);
   }
   wrap.appendChild(summary);
 
@@ -1781,8 +2808,7 @@ function renderEpisodeBlock(view) {
   }
 
   const seasonPickSelect = document.createElement('select');
-  seasonPickSelect.style.cssText =
-    'height:26px;padding:0 6px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-size:12px;';
+  seasonPickSelect.className = 'ui-select-compact';
   seasonPickSelect.title = '选择要开启的季度编号（支持补加中间缺失的第 2 季等）';
   const maxOptionSeason = Math.max(defaultMissingSeason + 2, 6);
   for (let sIdx = 1; sIdx <= maxOptionSeason; sIdx += 1) {
@@ -1869,6 +2895,23 @@ function renderEpisodeBlock(view) {
   const editHost = el('div', 'ep-edit-host');
 
   if (eps.length) {
+    const legendBar = el('div', 'ep-legend-bar');
+    const watchLegend = el('div', 'ep-legend-group');
+    watchLegend.innerHTML = `
+      <span><strong>观看状态：</strong></span>
+      <span class="ep-legend-item"><i class="ep-legend-swatch watched"></i>已看</span>
+      <span class="ep-legend-item"><i class="ep-legend-swatch unwatched"></i>未看</span>
+    `;
+    const mediaLegend = el('div', 'ep-legend-group');
+    mediaLegend.innerHTML = `
+      <span><strong>本地文件：</strong></span>
+      <span class="ep-legend-item"><i class="ep-legend-swatch media-ok"></i>本地可用</span>
+      <span class="ep-legend-item"><i class="ep-legend-swatch media-missing"></i>文件缺失</span>
+    `;
+    legendBar.appendChild(watchLegend);
+    legendBar.appendChild(mediaLegend);
+    wrap.appendChild(legendBar);
+
     const grid = el('div', 'ep-grid');
     for (const ep of eps) {
       const label = ep.is_special ? ep.episode_key || `SP${ep.episode_number}` : String(ep.episode_number);
@@ -2023,11 +3066,16 @@ async function switchView(view) {
   state.view = view;
   const isStats = view === 'stats';
   const isSeasonal = view === 'seasonal';
+  const isUiStudio = view === 'ui-studio';
   const isList = view === 'list';
 
   $('#list').hidden = !isList;
   $('#stats').hidden = !isStats;
   $('#seasonal').hidden = !isSeasonal;
+  const uiStudioEl = $('#uiStudio');
+  if (uiStudioEl) uiStudioEl.hidden = !isUiStudio;
+  const focusStrip = $('#watchingFocusStrip');
+  if (focusStrip && !isList) focusStrip.hidden = true;
   $('#empty').hidden = true;
   $('#loading').hidden = true;
   $('.filters').hidden = !isList;
@@ -2037,17 +3085,259 @@ async function switchView(view) {
   $('#statsBtn').classList.toggle('active-nav', isStats);
   $('#seasonalBtn').textContent = isSeasonal ? '返回账本' : '新番导览';
   $('#seasonalBtn').classList.toggle('active-nav', isSeasonal);
+  const uiBtn = $('#uiStudioBtn');
+  if (uiBtn) {
+    uiBtn.textContent = isUiStudio ? '返回账本' : 'UI 样本 (4版)';
+    uiBtn.classList.toggle('active-nav', isUiStudio);
+  }
 
   if (!isList) {
-    $('#stat').textContent = '';
+    $('#stat').textContent = isUiStudio ? '当前视图：应用诊断评估与 4 套定制 UI 视觉样本展台' : '';
     const batchBar = $('#ledgerBatchBar');
     if (batchBar) batchBar.hidden = true;
   }
 
+  renderUiQuickBar();
+  renderStudioSidebar();
   closeDrawer();
   if (isStats) await loadStats();
   else if (isSeasonal) await loadSeasonal();
+  else if (isUiStudio) renderUiStudioView();
   else await load();
+}
+
+function renderUiStudioView() {
+  const host = $('#uiStudio');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const sampleItems = (state.allLibraryList.length ? state.allLibraryList : state.list).slice(0, 3);
+  const fallbackSamples = [
+    { canonical_title: '葬送的芙莉莲', status: 'completed', rating: 10, episode_watched: 28, episode_total: 28, release_year: 2023 },
+    { canonical_title: '药屋少女的呢喃 第二季', status: 'watching', rating: 9, episode_watched: 8, episode_total: 24, release_year: 2025 },
+    { canonical_title: '迷宫饭', status: 'watching', rating: 9, episode_watched: 16, episode_total: 24, release_year: 2024 }
+  ];
+  const previewList = sampleItems.length >= 3 ? sampleItems : fallbackSamples;
+
+  // 顶部说明与一键恢复样本按钮
+  const hero = el('div', 'studio-hero-banner');
+  const heroLeft = el('div', '');
+  heroLeft.appendChild(
+    el('h2', 'studio-hero-title', '应用全面评估优化报告 & 四版场景化 UI 视觉样本展台')
+  );
+  heroLeft.appendChild(
+    el(
+      'p',
+      'studio-hero-desc',
+      '根据「次元刻度」的四大真实使用途径（日常手账记账、夜间看番调起本地播放器、NAS/百部番剧全息台账、季度新番周历与跨端同步），为您定制了 4 套风格迥异的 UI 视觉方案与 3 种信息密度视图。点击任意样本卡片即可实时应用到全站。'
+    )
+  );
+  hero.appendChild(heroLeft);
+
+  const heroActions = el('div', 'inline-row');
+  const seedBtn = el('button', 'btn small', '注入/补齐演示番剧样本');
+  seedBtn.type = 'button';
+  seedBtn.addEventListener('click', async () => {
+    seedBtn.disabled = true;
+    try {
+      const res = await api('/api/demo-seed', { method: 'POST' });
+      toast(res.count > 0 ? `已注入 ${res.count} 部演示番剧` : '当前账本已包含全部演示番剧样本');
+      await load();
+      renderUiStudioView();
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      seedBtn.disabled = false;
+    }
+  });
+  const mascotBtn = el('button', 'btn small', '看板娘「刻度娘」立绘档案');
+  mascotBtn.type = 'button';
+  mascotBtn.addEventListener('click', () => openMascotGalleryModal());
+  heroActions.appendChild(mascotBtn);
+  heroActions.appendChild(seedBtn);
+
+  const backBtn = el('button', 'btn primary small', '返回账本主视图 →');
+  backBtn.type = 'button';
+  backBtn.addEventListener('click', () => switchView('list'));
+  heroActions.appendChild(backBtn);
+  hero.appendChild(heroActions);
+  host.appendChild(hero);
+
+  // 评估与修复卡片
+  const auditGrid = el('div', 'audit-report-grid');
+  const audits = [
+    {
+      title: '1. 外部数据源 ID 冲突修复',
+      status: '已修复 · 147项测试全绿',
+      detail: '修复了 Bangumi 详情接口将内置新番库合成 ID（如《药屋少女的呢喃 第二季》486192）误匹配为线上同名编号非动画书籍词条的问题，增加条目类型 (type===2) 与标题重合度双重校验。'
+    },
+    {
+      title: '2. 全组件暗夜主题表面对比度对齐',
+      status: '深度优化 · 零刺眼白块',
+      detail: '全面排查并替换抽屉、弹窗、搜索候选框、分集编辑器与配额面板中的硬编码白底 (#fff/#fbfbf9) 与深蓝文字 (#0c447c)，在「暗夜放映室 (Cinema)」下实现完整沉浸对比度。'
+    },
+    {
+      title: '3. 追番打卡焦点舱与抽屉一键 +1',
+      status: '交互增强 · 闭环提示',
+      detail: '顶部「正在追番 · 快捷打卡」支持展开全部在看番剧与完结状态自动晋升询问；详情抽屉分集摘要栏新增主按钮「+1 记第 X 集」，无需在长分集网格中寻找。'
+    },
+    {
+      title: '4. 台账表行内快改与看板一键流转',
+      status: '工作台升级 · 3种布局',
+      detail: '高密台账表格支持行内直接下拉修改状态、点击标签胶囊筛选与一键标星收藏；四栏看板卡片内置「▶ 开始追番 / ✓ 标为看完」快捷流转按钮。'
+    },
+    {
+      title: '5. 筛选防迷失提示条与快捷键矩阵',
+      status: '易用性提升 · 键盘流',
+      detail: '当启用搜索词、标签或状态筛选时自动显示「当前筛选条件 · 一键重置」提示条；支持数字键 1/2/3 秒切网格/台账表/看板，以及 / 搜索、n 新增、s 新番、u 样本展台。'
+    },
+    {
+      title: '6. 弹窗宽度泄漏修复与双色分享海报',
+      status: '已修复 · 双主题导出',
+      detail: '修复了关闭本地识别/分享图宽弹窗后「新增作品」弹窗保持宽卡片的样式残留问题；年度总结图与个人喜好九宫格支持「典雅宣纸浅色 / 暗夜流光深色」双风格高清 PNG 导出。'
+    }
+  ];
+  for (const a of audits) {
+    const card = el('div', 'audit-card');
+    const head = el('div', 'audit-card-head');
+    head.appendChild(el('span', '', a.title));
+    head.appendChild(el('span', 'audit-status-tag', a.status));
+    card.appendChild(head);
+    card.appendChild(el('p', '', a.detail));
+    auditGrid.appendChild(card);
+  }
+  host.appendChild(auditGrid);
+
+  // 四版 UI 样本实时渲染对比矩阵
+  const sampleGrid = el('div', 'ui-sample-grid');
+  for (const ed of UI_EDITIONS) {
+    const isCurrent = state.uiTheme === ed.key;
+    const sCard = el('div', 'ui-sample-card' + (isCurrent ? ' active-edition' : ''));
+
+    // 迷你实时渲染画布
+    const preview = el('div', 'ui-mini-preview');
+    preview.style.background = ed.bg;
+    preview.style.color = ed.text;
+    preview.title = `点击立即切换为「${ed.name}」`;
+
+    const miniTop = el('div', 'ui-mini-topbar');
+    const brandSpan = el('span', '', `次元刻度 · ${ed.shortName}`);
+    if (ed.key === 'editorial') brandSpan.style.fontFamily = 'var(--font-display)';
+    miniTop.appendChild(brandSpan);
+
+    const pills = el('div', 'ui-mini-pills');
+    for (const [idx, pText] of ['在看', '新番导览', '+ 新增'].entries()) {
+      const p = el('span', 'ui-mini-pill', pText);
+      if (idx === 2) {
+        p.style.background = ed.accent;
+        p.style.color = '#ffffff';
+      } else {
+        p.style.background = ed.card;
+        p.style.border = `1px solid ${ed.accent}44`;
+      }
+      pills.appendChild(p);
+    }
+    miniTop.appendChild(pills);
+    preview.appendChild(miniTop);
+
+    // 根据推荐布局渲染不同的迷你样本结构
+    const miniCards = el('div', 'ui-mini-cards');
+    for (const item of previewList) {
+      const mItem = el('div', 'ui-mini-item');
+      mItem.style.background = ed.card;
+      mItem.style.border = `1px solid ${ed.key === 'cinema' ? '#222f46' : '#e2e8f0'}`;
+      if (ed.key === 'bento') mItem.style.borderRadius = '10px';
+
+      const poster = el('div', 'ui-mini-poster');
+      poster.style.background = coverStyle(item.canonical_title);
+      if (item.cover_path) {
+        const img = document.createElement('img');
+        img.src = coverProxyUrl(item.cover_path, 200);
+        img.alt = item.canonical_title;
+        img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+        img.onerror = () => img.remove();
+        poster.appendChild(img);
+      }
+      const tagBadge = el('span', '', STATUS_LABEL[item.status] || '在看');
+      tagBadge.style.cssText = `position:relative;z-index:1;background:${ed.badgeBg};color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;`;
+      poster.appendChild(tagBadge);
+      mItem.appendChild(poster);
+
+      const mTitle = el('div', '', item.canonical_title);
+      mTitle.style.cssText = 'font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      mItem.appendChild(mTitle);
+
+      const total = Number(item.episode_total || 12);
+      const watched = Number(item.episode_watched || 6);
+      const pct = Math.min(100, Math.round((watched / total) * 100));
+      const mBar = el('div', 'ui-mini-bar');
+      mBar.style.background = ed.key === 'cinema' ? '#1e293b' : '#e5e7eb';
+      const mFill = el('div', '');
+      mFill.style.cssText = `height:100%;width:${pct}%;background:${ed.accent};`;
+      mBar.appendChild(mFill);
+      mItem.appendChild(mBar);
+
+      miniCards.appendChild(mItem);
+    }
+    preview.appendChild(miniCards);
+    preview.addEventListener('click', () => {
+      applyUiTheme(ed.key, { switchRecommendedLayout: true });
+    });
+    sCard.appendChild(preview);
+
+    // 样本说明区
+    const sBody = el('div', 'ui-sample-body');
+    const sHead = el('div', 'ui-sample-head');
+    sHead.appendChild(el('div', 'ui-sample-title', ed.name));
+    if (isCurrent) {
+      sHead.appendChild(el('span', 'audit-status-tag', '当前使用中'));
+    }
+    sBody.appendChild(sHead);
+    sBody.appendChild(el('div', 'ui-sample-scene', `适用场景：${ed.scene}`));
+    sBody.appendChild(el('p', 'ui-sample-desc', ed.desc));
+
+    const swatches = el('div', 'ui-sample-swatches');
+    for (const sw of ed.swatches) {
+      const chip = el('span', 'ui-swatch-chip');
+      const dot = el('span', 'ui-theme-dot');
+      dot.style.background = sw.hex;
+      dot.style.border = '1px solid rgba(128,128,128,0.3)';
+      chip.appendChild(dot);
+      chip.appendChild(el('span', '', `${sw.label} ${sw.hex}`));
+      swatches.appendChild(chip);
+    }
+    sBody.appendChild(swatches);
+
+    const actions = el('div', 'ui-sample-actions');
+    const recLayoutLabel = LAYOUT_MODES.find((m) => m.key === ed.recommendedLayout)?.label || '海报网格';
+    actions.appendChild(el('span', 'ep-hint', `推荐搭配布局：${recLayoutLabel}`));
+
+    const btnGroup = el('div', 'inline-row');
+    const applyThemeOnlyBtn = el('button', 'btn small', '仅应用配色');
+    applyThemeOnlyBtn.type = 'button';
+    applyThemeOnlyBtn.addEventListener('click', () => {
+      applyUiTheme(ed.key, { switchRecommendedLayout: false });
+    });
+    btnGroup.appendChild(applyThemeOnlyBtn);
+
+    const applyFullBtn = el(
+      'button',
+      'btn small primary',
+      isCurrent ? '体验此版账本 →' : '应用此版 UI 并预览 →'
+    );
+    applyFullBtn.type = 'button';
+    applyFullBtn.addEventListener('click', () => {
+      applyUiTheme(ed.key, { switchRecommendedLayout: true });
+      switchView('list');
+    });
+    btnGroup.appendChild(applyFullBtn);
+    actions.appendChild(btnGroup);
+    sBody.appendChild(actions);
+
+    sCard.appendChild(sBody);
+    sampleGrid.appendChild(sCard);
+  }
+  host.appendChild(sampleGrid);
 }
 
 /* ---------------- 季度新番导览与每日放送周历 (B-003 + Stage 11/12 全量翻页版) ---------------- */
@@ -2308,9 +3598,7 @@ async function openSeasonalItemDetail(item) {
       const tagWrap = el('div', 'inline-row');
       tagWrap.style.flexWrap = 'wrap';
       for (const t of data.tags) {
-        const chip = el('span', '', t);
-        chip.style.cssText =
-          'padding:2px 8px;background:var(--bg);border:1px solid var(--line-strong);border-radius:99px;font-size:12px;color:var(--ink-2);';
+        const chip = el('span', 'media-tag', t);
         tagWrap.appendChild(chip);
       }
       body.appendChild(fieldBlock('类型与标签', tagWrap));
@@ -2329,9 +3617,7 @@ async function openSeasonalItemDetail(item) {
 
     // 分集标题预览（若详情返回了 episodeList）
     if (Array.isArray(data.episodeList) && data.episodeList.length > 0) {
-      const epListWrap = el('div', '');
-      epListWrap.style.cssText =
-        'display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;padding:8px;background:var(--bg);border:1px solid var(--line);border-radius:7px;font-size:12px;';
+      const epListWrap = el('div', 'watch-events-box');
       for (const ep of data.episodeList.slice(0, 26)) {
         epListWrap.appendChild(el('div', '', `第 ${ep.ep} 集：${ep.title}`));
       }
@@ -2427,9 +3713,7 @@ function renderSeasonalCard(item, { selectable = true } = {}) {
   const meta = el('div', 'card-meta');
   const srcList = Array.isArray(item.sources) && item.sources.length ? item.sources : [item.source];
   const srcBadgeText = srcList.map((s) => SOURCE_BADGE[s] || s).join('·');
-  const srcBadge = el('span', '', srcBadgeText);
-  srcBadge.style.cssText =
-    'padding:1px 5px;background:var(--bg);border:1px solid var(--line-strong);border-radius:4px;font-size:10px;color:var(--ink-2);';
+  const srcBadge = el('span', 'seasonal-src-chip', srcBadgeText);
   meta.appendChild(srcBadge);
 
   meta.appendChild(
@@ -2519,7 +3803,7 @@ function buildSeasonalPaginationBar() {
   const controls = el('div', 'inline-row');
 
   const pageSizeSel = document.createElement('select');
-  pageSizeSel.style.cssText = 'height:30px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-size:12px;';
+  pageSizeSel.style.cssText = 'height:30px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px;';
   for (const [sz, label] of [
     [24, '每页 24 部'],
     [48, '每页 48 部'],
@@ -2709,9 +3993,9 @@ function renderSeasonal() {
   // 季度内搜索框
   const kwInput = document.createElement('input');
   kwInput.type = 'search';
+  kwInput.className = 'ui-input-compact';
   kwInput.placeholder = '筛选当季番名/标签…';
   kwInput.value = state.seasonalKeyword || '';
-  kwInput.style.cssText = 'height:32px;width:145px;padding:0 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-size:12px;';
   kwInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -2898,20 +4182,13 @@ function renderWeeklyCalendarView(host) {
   for (const d of visibleDays) {
     const dayId = Number(d.weekday?.id) || 1;
     const isToday = dayId === todayWeekday;
-    const section = el('div', '');
-    section.style.marginBottom = '22px';
-
-    const secTitle = el('div', '');
-    secTitle.style.cssText =
-      'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line);';
+    const section = el('div', 'calendar-day-section');
+    const secTitle = el('div', 'calendar-day-head');
     const leftTitle = el('div', 'inline-row');
     const h3 = el('strong', '', `${d.weekday?.cn || shortDayLabels[dayId - 1]}`);
-    h3.style.fontSize = '15px';
     leftTitle.appendChild(h3);
     if (isToday) {
-      const todayBadge = el('span', '', '今日放送');
-      todayBadge.style.cssText =
-        'padding:2px 7px;background:var(--accent-soft);color:var(--accent);border-radius:99px;font-size:11px;font-weight:600;';
+      const todayBadge = el('span', 'calendar-today-pill', '今日放送');
       leftTitle.appendChild(todayBadge);
     }
     secTitle.appendChild(leftTitle);
@@ -3161,11 +4438,9 @@ function renderStats(s) {
     if (Array.isArray(adv.top_tags) && adv.top_tags.length > 0) {
       const tagCard = el('div', 'stat-card');
       tagCard.appendChild(el('div', 'stat-card-title', '常看题材 / 个人标签 Top 榜'));
-      const tagWrap = el('div', '');
-      tagWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+      const tagWrap = el('div', 'stat-tag-cloud');
       for (const t of adv.top_tags) {
         const chip = el('span', 'media-tag', `${t.name} · ${t.count} 部`);
-        chip.style.cssText = 'padding:4px 10px;font-size:12px;';
         tagWrap.appendChild(chip);
       }
       tagCard.appendChild(tagWrap);
@@ -3175,12 +4450,9 @@ function renderStats(s) {
     if (Array.isArray(adv.recent_events) && adv.recent_events.length > 0) {
       const evCard = el('div', 'stat-card');
       evCard.appendChild(el('div', 'stat-card-title', '最近追番操作时间轴'));
-      const evList = el('div', '');
-      evList.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-size:12px;';
+      const evList = el('div', 'stat-timeline-list');
       for (const ev of adv.recent_events.slice(0, 10)) {
-        const r = el('div', '');
-        r.style.cssText =
-          'display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--bg);border-radius:6px;gap:10px;';
+        const r = el('div', 'stat-timeline-row');
         r.appendChild(
           el('span', '', `《${ev.canonical_title}》 · ${ev.detail || ev.event_type}`)
         );
@@ -3238,8 +4510,7 @@ function buildYearlyHeatmapCard(yearObj) {
   const map = new Map(dailyList.map((d) => [d.date, d]));
 
   const card = el('div', 'stat-card');
-  const titleRow = el('div', '');
-  titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;';
+  const titleRow = el('div', 'stat-card-head-row');
   titleRow.appendChild(
     el(
       'div',
@@ -3328,10 +4599,9 @@ function showEpisodeEditor(host, view, ep) {
 
   const titleInput = document.createElement('input');
   titleInput.type = 'text';
+  titleInput.className = 'ui-input-compact';
   titleInput.placeholder = '分集标题（可选）';
   titleInput.value = ep.title ?? '';
-  titleInput.style.cssText =
-    'height:28px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-size:12px;width:130px;';
   box.appendChild(titleInput);
 
   const actions = el('div', 'ep-edit-actions');
@@ -3691,32 +4961,34 @@ async function openMediaScanModal() {
   form.innerHTML = `
     <div class="form-error" id="formError"></div>
 
-    <div class="settings-section">
-      <div class="settings-title">
-        <span>方式一：选择本机番剧文件夹或视频文件（云端/本地通用，零视频上传）</span>
-      </div>
-      <div class="media-picker-box">
-        <p style="margin:0 0 8px;font-weight:500">浏览器直接读取本地文件名，自动剥离 [字幕组][1080p][HEVC] 等标签并提取集数</p>
-        <div class="inline-row" style="justify-content:center;flex-wrap:wrap">
-          <button type="button" class="btn primary small" id="pickDirBtn">选择本地番剧文件夹</button>
-          <button type="button" class="btn small" id="pickFilesBtn">选择多个视频文件</button>
-          <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
-          <input type="file" id="filesInput" multiple accept=".mp4,.mkv,.avi,.mov,.flv,.webm,.ts,.m2ts,.rmvb,video/*" hidden>
+    <div class="media-workbench-grid">
+      <div class="settings-section" style="margin-bottom:0;border-bottom:none">
+        <div class="settings-title">
+          <span>方式一：选择本机番剧文件夹 / 视频文件（零上传）</span>
         </div>
-        <div class="ep-hint" style="margin-top:8px">注：不会向服务器上传视频内容，仅发送几十字节的文件名用于解析番名与话数，并支持在浏览器内直接点播本地视频。</div>
+        <div class="media-picker-box">
+          <p style="margin:0 0 8px;font-weight:600">自动剥离 [字幕组][1080p][HEVC] 等标签并提取集数</p>
+          <div class="inline-row" style="justify-content:center;flex-wrap:wrap">
+            <button type="button" class="btn primary small" id="pickDirBtn">选择本地番剧文件夹</button>
+            <button type="button" class="btn small" id="pickFilesBtn">选择多个视频文件</button>
+            <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+            <input type="file" id="filesInput" multiple accept=".mp4,.mkv,.avi,.mov,.flv,.webm,.ts,.m2ts,.rmvb,video/*" hidden>
+          </div>
+          <div class="ep-hint">仅解析文件名与话数，支持在放映室内直接点播本地视频。</div>
+        </div>
       </div>
-    </div>
 
-    <div class="settings-section">
-      <div class="settings-title">
-        <span>方式二：常驻媒体根目录管理与非破坏性扫描（Stage 6 · 支持多目录、多版本、丢失检测）</span>
+      <div class="settings-section" style="margin-bottom:0;border-bottom:none">
+        <div class="settings-title">
+          <span>方式二：常驻媒体库根目录与非破坏性扫描</span>
+        </div>
+        <div class="inline-row" style="flex-wrap:wrap">
+          <input type="text" id="serverMediaDir" class="ui-input-compact" placeholder="例如 D:\\Anime 或 /mnt/media/anime">
+          <button type="button" class="btn small primary" id="addMediaRootBtn">登记并扫描</button>
+          <button type="button" class="btn small ghost" id="scanServerDirBtn">仅预览</button>
+        </div>
+        <div id="mediaRootsHost" style="margin-top:8px"></div>
       </div>
-      <div class="inline-row">
-        <input type="text" id="serverMediaDir" placeholder="例如 D:\\Anime 或 /mnt/media/anime">
-        <button type="button" class="btn small" id="addMediaRootBtn">添加为媒体根目录并扫描</button>
-        <button type="button" class="btn small ghost" id="scanServerDirBtn">仅临时预览</button>
-      </div>
-      <div id="mediaRootsHost" style="margin-top:8px"></div>
     </div>
 
     <div id="mediaPendingHost"></div>
@@ -3775,42 +5047,21 @@ async function openMediaScanModal() {
       }
 
       const card = el('div', 'media-group-card');
-      const mainRow = el('div', '');
-      mainRow.style.cssText = 'display:flex;gap:12px;align-items:flex-start;';
+      const mainRow = el('div', 'media-group-main');
 
       // 左侧封面实时预览框（自动联想到资料后直接显示封面）
-      const coverBox = el('div', 'search-cover');
-      coverBox.style.cssText =
-        'width:64px;height:88px;border-radius:6px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff;';
+      const coverBox = el('div', 'media-group-cover');
 
       const updateCoverPreview = (titleText, remoteOrProxyUrl) => {
         coverBox.innerHTML = '';
-        coverBox.style.background = coverStyle(titleText || g.title || '番');
-        if (remoteOrProxyUrl) {
-          const img = document.createElement('img');
-          img.src = remoteOrProxyUrl.startsWith('/api/cover')
-            ? buildApiUrl(remoteOrProxyUrl)
-            : coverProxyUrl(remoteOrProxyUrl, 200);
-          img.alt = '';
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
-          img.onerror = () => {
-            img.remove();
-            coverBox.textContent = firstChar(titleText || g.title);
-          };
-          coverBox.appendChild(img);
-        } else {
-          coverBox.textContent = firstChar(titleText || g.title);
-        }
+        paintCover(coverBox, titleText || g.title || '番', remoteOrProxyUrl, 200);
       };
       updateCoverPreview(g.title, g.cover_url || '');
       mainRow.appendChild(coverBox);
 
-      const rightCol = el('div', '');
-      rightCol.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;';
-
+      const rightCol = el('div', 'media-group-right');
       const head = el('div', 'media-group-head');
       const titleWrap = el('div', 'media-group-title');
-      titleWrap.style.cssText = 'flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;';
 
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -3821,11 +5072,10 @@ async function openMediaScanModal() {
 
       const titleInput = document.createElement('input');
       titleInput.type = 'text';
+      titleInput.className = 'ui-input-compact';
       titleInput.value = g.title;
       titleInput.placeholder = '番剧中文名称';
       titleInput.title = '入库后的番剧名称（可通过下方搜索联想自动填入或手动修改）';
-      titleInput.style.cssText =
-        'padding:4px 8px;border:1px solid var(--line-strong);border-radius:6px;font-size:13px;font-weight:600;min-width:170px;max-width:250px;';
       titleInput.addEventListener('input', () => {
         g.title = titleInput.value.trim() || g.titleCandidate;
         if (!g.cover_url) updateCoverPreview(g.title, '');
@@ -3834,8 +5084,7 @@ async function openMediaScanModal() {
 
       // 季度选择下拉框（识别出第3季默认选第3季，支持随时调整）
       const seasonSel = document.createElement('select');
-      seasonSel.style.cssText =
-        'height:28px;padding:0 6px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-size:12px;';
+      seasonSel.className = 'ui-select-compact';
       seasonSel.title = '该批视频所属季度（只会创建所选季度，不会误建其他季）';
       for (let sIdx = 1; sIdx <= 10; sIdx += 1) {
         const opt = document.createElement('option');
@@ -3853,12 +5102,12 @@ async function openMediaScanModal() {
       const epCountWrap = el('span', 'ep-hint', '本季共');
       const totalEpInput = document.createElement('input');
       totalEpInput.type = 'number';
+      totalEpInput.className = 'ui-input-compact';
+      totalEpInput.style.width = '64px';
       totalEpInput.min = '1';
       totalEpInput.max = '2000';
       totalEpInput.value = String(g.totalEpisodes || g.maxEpisode || 12);
       totalEpInput.title = '该季总集数';
-      totalEpInput.style.cssText =
-        'width:56px;height:28px;padding:0 6px;border:1px solid var(--line-strong);border-radius:6px;font-size:12px;';
       totalEpInput.addEventListener('input', () => {
         const v = Number(totalEpInput.value);
         if (Number.isInteger(v) && v > 0) g.totalEpisodes = v;
@@ -3882,16 +5131,13 @@ async function openMediaScanModal() {
       rightCol.appendChild(head);
 
       // 搜索联想与资料自动补齐栏（与「新增作品」一致的搜索体验）
-      const assocBox = el('div', '');
-      assocBox.style.cssText =
-        'background:var(--bg);border:1px dashed var(--line-strong);border-radius:8px;padding:6px 8px;';
+      const assocBox = el('div', 'media-assoc-box');
       const assocInputRow = el('div', 'inline-row');
       const assocInput = document.createElement('input');
       assocInput.type = 'text';
+      assocInput.className = 'ui-input-compact';
       assocInput.value = g.title;
       assocInput.placeholder = '输入番名搜索联想，点选自动补齐封面、中文名、简介、标签…';
-      assocInput.style.cssText =
-        'flex:1;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:#fff;';
       const assocSearchBtn = el('button', 'btn small', '搜索候选');
       assocSearchBtn.type = 'button';
       const ddpMatchBtn = el('button', 'btn small ghost', '弹弹Play匹配');
@@ -4227,15 +5473,18 @@ async function openMediaScanModal() {
         for (const r of roots) {
           const row = el('div', 'source-row');
           const c = r.counts || {};
-          row.appendChild(
-            el(
-              'span',
-              '',
-              `${r.display_name || r.path}（可用 ${c.available || 0} · 待确认 ${
-                (c.needs_review || 0) + (c.unmatched || 0)
-              } · 缺失 ${c.missing || 0}）`
-            )
-          );
+          const rootLeft = el('div', 'inline-row');
+          rootLeft.style.flexWrap = 'wrap';
+          rootLeft.appendChild(el('strong', '', r.display_name || r.path));
+          rootLeft.appendChild(el('span', 'media-status-pill ok', `● 可用 ${c.available || 0}`));
+          const pendCount = (c.needs_review || 0) + (c.unmatched || 0);
+          if (pendCount > 0) {
+            rootLeft.appendChild(el('span', 'media-status-pill pending', `● 待确认 ${pendCount}`));
+          }
+          if ((c.missing || 0) > 0) {
+            rootLeft.appendChild(el('span', 'media-status-pill missing', `▲ 缺失 ${c.missing}`));
+          }
+          row.appendChild(rootLeft);
           const acts = el('div', 'inline-row');
           const scanBtn = el('button', 'btn small', '重新扫描');
           scanBtn.type = 'button';
@@ -4506,6 +5755,7 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
   }
 
   let curTab = initialTab;
+  let posterDarkTheme = true;
   let savedGrid = [];
   try {
     savedGrid = JSON.parse(localStorage.getItem(PREF_GRID_STORAGE_KEY) || '[]');
@@ -4524,9 +5774,16 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
 
   const renderModalContent = () => {
     form.innerHTML = `
-      <div class="tabs" style="margin-bottom:12px">
-        <button type="button" class="tab ${curTab === 'poster' ? 'active' : ''}" id="tabPosterBtn">年度/生涯追番总结卡</button>
-        <button type="button" class="tab ${curTab === 'grid' ? 'active' : ''}" id="tabGridBtn">个人动画喜好表（九宫格）</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="tabs">
+          <button type="button" class="tab ${curTab === 'poster' ? 'active' : ''}" id="tabPosterBtn">年度/生涯追番总结卡</button>
+          <button type="button" class="tab ${curTab === 'grid' ? 'active' : ''}" id="tabGridBtn">个人动画喜好表（九宫格）</button>
+        </div>
+        <div class="inline-row">
+          <span class="ep-hint">海报底色：</span>
+          <button type="button" class="btn small ${!posterDarkTheme ? 'primary' : 'ghost'}" id="posterLightBtn">典雅宣纸浅色</button>
+          <button type="button" class="btn small ${posterDarkTheme ? 'primary' : 'ghost'}" id="posterDarkBtn">暗夜流光深色</button>
+        </div>
       </div>
       <div id="gridEditorHost"></div>
       <div class="share-canvas-wrap">
@@ -4544,6 +5801,14 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
     });
     $('#tabGridBtn').addEventListener('click', () => {
       curTab = 'grid';
+      renderModalContent();
+    });
+    $('#posterLightBtn').addEventListener('click', () => {
+      posterDarkTheme = false;
+      renderModalContent();
+    });
+    $('#posterDarkBtn').addEventListener('click', () => {
+      posterDarkTheme = true;
       renderModalContent();
     });
     $('#formCancel').addEventListener('click', () => {
@@ -4582,7 +5847,7 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
         labelInput.addEventListener('input', () => {
           cell.label = labelInput.value.trim() || DEFAULT_PREF_LABELS[idx];
           saveGridState();
-          drawPreferenceGridCanvas(canvas, gridCells, allAnime);
+          drawPreferenceGridCanvas(canvas, gridCells, allAnime, posterDarkTheme);
         });
 
         const animeSel = document.createElement('select');
@@ -4600,7 +5865,7 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
         animeSel.addEventListener('change', () => {
           cell.animeId = animeSel.value;
           saveGridState();
-          drawPreferenceGridCanvas(canvas, gridCells, allAnime);
+          drawPreferenceGridCanvas(canvas, gridCells, allAnime, posterDarkTheme);
         });
 
         box.appendChild(labelInput);
@@ -4608,9 +5873,9 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
         gridWrap.appendChild(box);
       });
       editorHost.appendChild(gridWrap);
-      drawPreferenceGridCanvas(canvas, gridCells, allAnime);
+      drawPreferenceGridCanvas(canvas, gridCells, allAnime, posterDarkTheme);
     } else {
-      drawStatsPosterCanvas(canvas, s, allAnime);
+      drawStatsPosterCanvas(canvas, s, allAnime, posterDarkTheme);
     }
   };
 
@@ -4626,22 +5891,44 @@ async function openShareGeneratorModal(initialTab = 'poster', statsObj = null) {
   renderModalContent();
 }
 
-async function drawStatsPosterCanvas(canvas, statsObj, allAnime) {
+async function drawStatsPosterCanvas(canvas, statsObj, allAnime, isDark = false) {
   canvas.width = 1080;
   canvas.height = 720;
   const ctx = canvas.getContext('2d');
 
+  const pal = isDark
+    ? {
+        bg: '#0b0f17',
+        card: '#151e30',
+        border: '#26354d',
+        title: '#f8fafc',
+        muted: '#94a3b8',
+        accent: '#38bdf8',
+        track: '#1e293b',
+        gold: '#fbbf24'
+      }
+    : {
+        bg: '#f7f7f5',
+        card: '#ffffff',
+        border: '#e4e4e0',
+        title: '#1f1f1d',
+        muted: '#6b6b66',
+        accent: '#185fa5',
+        track: '#f2f2ee',
+        gold: '#854f0b'
+      };
+
   // 背景
-  ctx.fillStyle = '#f7f7f5';
+  ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // 顶部标题区
-  ctx.fillStyle = '#1f1f1d';
+  ctx.fillStyle = pal.title;
   ctx.font = 'bold 34px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText('次元刻度 · 个人动画追番报告', 48, 66);
 
   const yearNum = statsObj?.year?.year || new Date().getFullYear();
-  ctx.fillStyle = '#6b6b66';
+  ctx.fillStyle = pal.muted;
   ctx.font = '18px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText(`${yearNum} 年度统计与全库概览 · 生成于 ${localToday()}`, 48, 100);
 
@@ -4666,18 +5953,18 @@ async function drawStatsPosterCanvas(canvas, statsObj, allAnime) {
     const y = 128;
     const w = 312;
     const h = 116;
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = pal.card;
     drawRoundedRect(ctx, x, y, w, h, 14);
     ctx.fill();
-    ctx.strokeStyle = '#e4e4e0';
+    ctx.strokeStyle = pal.border;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    ctx.fillStyle = '#185fa5';
+    ctx.fillStyle = pal.accent;
     ctx.font = 'bold 32px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.fillText(m.val, x + 24, y + 56);
 
-    ctx.fillStyle = '#6b6b66';
+    ctx.fillStyle = pal.muted;
     ctx.font = '16px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.fillText(m.sub, x + 24, y + 92);
   });
@@ -4687,13 +5974,13 @@ async function drawStatsPosterCanvas(canvas, statsObj, allAnime) {
   const chartY = 268;
   const chartW = 540;
   const chartH = 388;
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = pal.card;
   drawRoundedRect(ctx, chartX, chartY, chartW, chartH, 14);
   ctx.fill();
-  ctx.strokeStyle = '#e4e4e0';
+  ctx.strokeStyle = pal.border;
   ctx.stroke();
 
-  ctx.fillStyle = '#1f1f1d';
+  ctx.fillStyle = pal.title;
   ctx.font = 'bold 20px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText(`${yearNum} 年每月观看分布`, chartX + 24, chartY + 40);
 
@@ -4706,23 +5993,23 @@ async function drawStatsPosterCanvas(canvas, statsObj, allAnime) {
 
   months.forEach((m, i) => {
     const bx = chartX + 28 + i * (barW + gap);
-    ctx.fillStyle = '#f2f2ee';
+    ctx.fillStyle = pal.track;
     drawRoundedRect(ctx, bx, barAreaY, barW, barAreaH, 6);
     ctx.fill();
 
     if (m.episodes > 0) {
       const bh = Math.max(Math.round((m.episodes / maxEp) * barAreaH), 8);
-      ctx.fillStyle = '#185fa5';
+      ctx.fillStyle = pal.accent;
       drawRoundedRect(ctx, bx, barAreaY + barAreaH - bh, barW, bh, 6);
       ctx.fill();
 
-      ctx.fillStyle = '#185fa5';
+      ctx.fillStyle = pal.accent;
       ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(String(m.episodes), bx + barW / 2, barAreaY + barAreaH - bh - 6);
     }
 
-    ctx.fillStyle = '#8b8b84';
+    ctx.fillStyle = pal.muted;
     ctx.font = '13px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`${m.month}月`, bx + barW / 2, barAreaY + barAreaH + 26);
@@ -4734,13 +6021,13 @@ async function drawStatsPosterCanvas(canvas, statsObj, allAnime) {
   const rightY = 268;
   const rightW = 420;
   const rightH = 388;
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = pal.card;
   drawRoundedRect(ctx, rightX, rightY, rightW, rightH, 14);
   ctx.fill();
-  ctx.strokeStyle = '#e4e4e0';
+  ctx.strokeStyle = pal.border;
   ctx.stroke();
 
-  ctx.fillStyle = '#1f1f1d';
+  ctx.fillStyle = pal.title;
   ctx.font = 'bold 20px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText('账本代表作精选', rightX + 24, rightY + 40);
 
@@ -4775,36 +6062,54 @@ async function drawStatsPosterCanvas(canvas, statsObj, allAnime) {
     }
     ctx.restore();
 
-    ctx.fillStyle = '#1f1f1d';
+    ctx.fillStyle = pal.title;
     ctx.font = 'bold 14px "PingFang SC", "Microsoft YaHei", sans-serif';
     const shortTitle =
       item.canonical_title.length > 7 ? item.canonical_title.slice(0, 7) + '…' : item.canonical_title;
     ctx.fillText(shortTitle, cx, cy + ch + 24);
 
-    ctx.fillStyle = '#854f0b';
+    ctx.fillStyle = pal.gold;
     ctx.font = '13px sans-serif';
     ctx.fillText(item.rating ? `★ ${item.rating} 分` : STATUS_LABEL[item.status] || '在库', cx, cy + ch + 46);
   });
 
   // 底部水印
-  ctx.fillStyle = '#9a9a93';
+  ctx.fillStyle = pal.muted;
   ctx.font = '14px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText('次元刻度 · 本地优先的个人动画观看账本', 48, 692);
 }
 
-async function drawPreferenceGridCanvas(canvas, gridCells, allAnime) {
+async function drawPreferenceGridCanvas(canvas, gridCells, allAnime, isDark = false) {
   canvas.width = 960;
   canvas.height = 1140;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#f7f7f5';
+  const pal = isDark
+    ? {
+        bg: '#0b0f17',
+        card: '#151e30',
+        border: '#26354d',
+        title: '#f8fafc',
+        muted: '#94a3b8',
+        accent: '#0284c7'
+      }
+    : {
+        bg: '#f7f7f5',
+        card: '#ffffff',
+        border: '#d2d2cc',
+        title: '#1f1f1d',
+        muted: '#6b6b66',
+        accent: '#185fa5'
+      };
+
+  ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.fillStyle = '#1f1f1d';
+  ctx.fillStyle = pal.title;
   ctx.font = 'bold 34px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText('个人动画生涯喜好表', 40, 62);
 
-  ctx.fillStyle = '#6b6b66';
+  ctx.fillStyle = pal.muted;
   ctx.font = '17px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.fillText(`次元刻度 · 动画账本生成 (${localToday()})`, 40, 94);
 
@@ -4829,10 +6134,10 @@ async function drawPreferenceGridCanvas(canvas, gridCells, allAnime) {
     const x = startX + col * (cellW + gapX);
     const y = startY + row * (cellH + gapY);
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = pal.card;
     drawRoundedRect(ctx, x, y, cellW, cellH, 12);
     ctx.fill();
-    ctx.strokeStyle = '#d2d2cc';
+    ctx.strokeStyle = pal.border;
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -4846,7 +6151,7 @@ async function drawPreferenceGridCanvas(canvas, gridCells, allAnime) {
     if (img) {
       ctx.drawImage(img, x + 2, y + 2, cellW - 4, imgH);
     } else {
-      ctx.fillStyle = anime ? coverStyle(anime.canonical_title) : '#eae9e4';
+      ctx.fillStyle = anime ? coverStyle(anime.canonical_title) : '#334155';
       ctx.fillRect(x + 2, y + 2, cellW - 4, imgH);
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 48px sans-serif';
@@ -4857,7 +6162,7 @@ async function drawPreferenceGridCanvas(canvas, gridCells, allAnime) {
     ctx.restore();
 
     // 类别标签胶囊
-    ctx.fillStyle = '#185fa5';
+    ctx.fillStyle = pal.accent;
     drawRoundedRect(ctx, x + 12, y + 12, 96, 28, 6);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
@@ -4865,13 +6170,13 @@ async function drawPreferenceGridCanvas(canvas, gridCells, allAnime) {
     ctx.fillText((cell.label || '').slice(0, 6), x + 22, y + 31);
 
     // 底部作品标题
-    ctx.fillStyle = '#1f1f1d';
+    ctx.fillStyle = pal.title;
     ctx.font = 'bold 17px "PingFang SC", "Microsoft YaHei", sans-serif';
     const titleStr = anime ? anime.canonical_title : '未选择作品';
     const clipped = titleStr.length > 14 ? titleStr.slice(0, 14) + '…' : titleStr;
     ctx.fillText(clipped, x + 14, y + imgH + 34);
 
-    ctx.fillStyle = '#6b6b66';
+    ctx.fillStyle = pal.muted;
     ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
     const subStr = anime
       ? [anime.release_year ? `${anime.release_year}年` : null, anime.rating ? `★ ${anime.rating}` : null]
@@ -5117,7 +6422,7 @@ async function openSettingsModal() {
       <div id="backupListHost" style="margin-bottom:10px"></div>
       <div class="inline-row" style="flex-wrap:wrap">
         <button type="button" class="btn small" id="exportJsonBtn">导出完整账本 JSON</button>
-        <select id="importConflictStrategy" style="height:30px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-size:12px">
+        <select id="importConflictStrategy" class="ui-select-compact">
           <option value="sync">导入冲突策略：双向智能同步（按最新修改时间合并状态与进度）</option>
           <option value="merge">导入冲突策略：仅补齐缺失资料与未看集数</option>
           <option value="skip">导入冲突策略：跳过同名/重复作品（保护本地）</option>
@@ -5238,18 +6543,18 @@ async function openSettingsModal() {
 
       const nameIn = document.createElement('input');
       nameIn.type = 'text';
+      nameIn.className = 'ui-input-compact';
       nameIn.value = tpl.name || '';
       nameIn.placeholder = '站点名称';
-      nameIn.style.cssText = 'padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;';
       nameIn.addEventListener('input', () => {
         tpl.name = nameIn.value;
       });
 
       const urlIn = document.createElement('input');
       urlIn.type = 'text';
+      urlIn.className = 'ui-input-compact';
       urlIn.value = tpl.url || '';
       urlIn.placeholder = 'https://example.com/search?q={keyword}';
-      urlIn.style.cssText = 'padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;';
       urlIn.addEventListener('input', () => {
         tpl.url = urlIn.value;
       });
@@ -5607,6 +6912,7 @@ function openForm(detail = null) {
   const a = detail?.anime ?? {};
   const st = detail?.state ?? {};
 
+  $('#modal .modal-card')?.classList.remove('wide-card');
   $('#modalTitle').textContent = isEdit ? '编辑资料' : '新增作品';
 
   const form = $('#animeForm');
@@ -5872,6 +7178,7 @@ function escapeAttr(s) {
 }
 
 function closeForm() {
+  $('#modal .modal-card')?.classList.remove('wide-card');
   $('#modal').hidden = true;
   state.editingId = null;
   clearHash();
@@ -5941,9 +7248,29 @@ async function submitForm(isEdit) {
 let searchTimer = null;
 
 function bindEvents() {
-  $('#q').addEventListener('input', (e) => {
+  const qInput = $('#q');
+  const sBox = document.querySelector('.searchbox');
+  let clearBtn = $('#searchClearBtn');
+  if (sBox && !clearBtn) {
+    clearBtn = el('button', 'search-clear-btn', '×');
+    clearBtn.id = 'searchClearBtn';
+    clearBtn.type = 'button';
+    clearBtn.title = '清空搜索词';
+    clearBtn.hidden = !qInput?.value;
+    clearBtn.addEventListener('click', () => {
+      if (qInput) qInput.value = '';
+      clearBtn.hidden = true;
+      state.keyword = '';
+      load();
+      qInput?.focus();
+    });
+    sBox.appendChild(clearBtn);
+  }
+
+  qInput.addEventListener('input', (e) => {
     clearTimeout(searchTimer);
     const value = e.target.value;
+    if (clearBtn) clearBtn.hidden = !value;
     searchTimer = setTimeout(() => {
       state.keyword = value.trim();
       load();
@@ -5963,6 +7290,29 @@ function bindEvents() {
   });
 
   $('#addBtn').addEventListener('click', () => openForm(null));
+  $('#mascotTrigger')?.addEventListener('click', () => {
+    const bubble = $('#mascotBubble');
+    if (!bubble) return openMascotGalleryModal();
+    if (bubble.hidden) {
+      const q = MASCOT_QUOTES[mascotQuoteIdx % MASCOT_QUOTES.length];
+      mascotQuoteIdx += 1;
+      bubble.innerHTML = `${q}<div style="margin-top:6px"><button type="button" class="link-btn" id="openMascotArchiveLink" style="font-size:11.5px;color:var(--accent)">查看「刻度娘」AI 娘化立绘设定 →</button></div>`;
+      bubble.hidden = false;
+      $('#openMascotArchiveLink')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bubble.hidden = true;
+        openMascotGalleryModal();
+      });
+      clearTimeout(bubble._timer);
+      bubble._timer = setTimeout(() => { bubble.hidden = true; }, 7000);
+    } else {
+      bubble.hidden = true;
+      openMascotGalleryModal();
+    }
+  });
+  $('#uiStudioBtn')?.addEventListener('click', () =>
+    switchView(state.view === 'ui-studio' ? 'list' : 'ui-studio')
+  );
   $('#seasonalBtn')?.addEventListener('click', () =>
     switchView(state.view === 'seasonal' ? 'list' : 'seasonal')
   );
@@ -6006,12 +7356,21 @@ function bindEvents() {
       e.preventDefault();
       if (state.view !== 'list') switchView('list').then(() => $('#q')?.focus());
       else $('#q')?.focus();
+    } else if (e.key === '1' && !$('#drawer').classList.contains('open')) {
+      setLayoutMode('grid');
+    } else if (e.key === '2' && !$('#drawer').classList.contains('open')) {
+      setLayoutMode('table');
+    } else if (e.key === '3' && !$('#drawer').classList.contains('open')) {
+      setLayoutMode('board');
     } else if (e.key === 'n') {
       e.preventDefault();
       openForm(null);
     } else if (e.key === 's') {
       e.preventDefault();
       switchView(state.view === 'seasonal' ? 'list' : 'seasonal');
+    } else if (e.key === 'u') {
+      e.preventDefault();
+      switchView(state.view === 'ui-studio' ? 'list' : 'ui-studio');
     } else if (e.key === 'm') {
       e.preventDefault();
       openMediaScanModal();
@@ -6031,6 +7390,8 @@ function handleHash() {
     openForm(null);
   } else if (h === 'seasonal') {
     switchView('seasonal');
+  } else if (h === 'ui-studio' || h === 'samples') {
+    switchView('ui-studio');
   } else if (h === 'media') {
     openMediaScanModal();
   } else if (h === 'share') {
@@ -6051,7 +7412,11 @@ async function boot() {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
   updateServerStatusNote();
+  applyUiTheme(state.uiTheme, { switchRecommendedLayout: false, silent: true });
   renderTabs();
+  renderLayoutSwitcher();
+  renderUiQuickBar();
+  renderStudioSidebar();
   bindEvents();
   await loadRuntimeConfig();
   await load();

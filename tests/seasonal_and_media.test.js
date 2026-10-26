@@ -1391,3 +1391,35 @@ test('Stage 15：移除 AniList 数据源、未放送/占位空壳词条精准�
   assert.ok(extPreviewRes.json.summary.length > 10, '详情预览应返回完整剧情简介');
   assert.ok(extPreviewRes.json.coverUrl.startsWith('/api/cover?u='), '详情预览应返回有效封面代理地址');
 });
+
+test("Stage 18: 演示样本一键注入 (/api/demo-seed) 幂等性与高密台账收藏切换接口验证", async (t) => {
+
+  // 首次注入应写入 6 部代表作样本
+  const seed1 = await req("/api/demo-seed", { method: "POST" });
+  assert.equal(seed1.status, 200);
+  assert.equal(seed1.json.ok, true);
+  assert.equal(seed1.json.seeded, true);
+  assert.equal(seed1.json.count, 7);
+
+  // 二次调用应保持幂等，不重复创建
+  const seed2 = await req("/api/demo-seed", { method: "POST" });
+  assert.equal(seed2.status, 200);
+  assert.equal(seed2.json.seeded, false);
+  assert.equal(seed2.json.count, 0);
+
+  // 验证台账表格行内收藏切换与标签字段返回
+  const listRes = await req("/api/anime");
+  assert.equal(listRes.status, 200);
+  assert.equal(listRes.json.data.length, 7);
+  const target = listRes.json.data.find((x) => x.canonical_title === "胆大党");
+  assert.ok(target, "应包含演示作品《胆大党》");
+  assert.ok(target.tag_names.includes("奇幻"), "列表应返回 tag_names 供高密台账表格渲染标签胶囊");
+  assert.equal(Boolean(target.is_favorite), false);
+
+  const favRes = await req(`/api/anime/${target.id}/status`, {
+    method: "POST",
+    body: { is_favorite: true }
+  });
+  assert.equal(favRes.status, 200);
+  assert.equal(Boolean(favRes.json.state.is_favorite), true);
+});
