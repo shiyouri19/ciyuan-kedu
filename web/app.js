@@ -1242,72 +1242,104 @@ async function stampNextEpisode(item) {
 }
 
 /**
- * 手帐主题：把「正在追看」渲染成一张大卡（封面 + 进度 + 盖章按钮 + 便签）。
- * 其他四套主题仍走原来的四张小卡，不受影响。
+ * 手帐主题：正在追看焦点横幅。
+ * 结构取自 v1.0.0 的 Stage 17（横向紧凑：左侧封面+信息，中间刻度娘气泡，右侧按钮组），
+ * 因为用户觉得之前「竖向堆四层 + 右侧便签」不好看。
  */
 function renderWashiFocus(strip, items) {
   const top = items[0];
   const cur = Number(top.episode_current || 0);
   const tot = Number(top.episode_total || 0);
-  const pct = tot > 0 ? Math.round((cur / tot) * 100) : 0;
+  const pct = tot > 0 ? Math.min(100, Math.round((cur / tot) * 100)) : 0;
 
-  const card = el('div', 'washi-focus');
-  card.appendChild(el('div', 'washi-ruler'));
+  const hero = el('div', 'watching-hero');
 
-  const cov = el('div', 'washi-focus-cover');
-  const covImg = document.createElement('img');
-  covImg.alt = top.canonical_title || '';
-  covImg.referrerPolicy = 'no-referrer';
-  covImg.src = coverProxyUrl(top.cover_path, 400);
-  covImg.onerror = () => {
-    covImg.style.display = 'none';
-    cov.style.background = coverStyle(top.canonical_title);
+  // ---- 左：封面 + 信息 ----
+  const left = el('div', 'hero-left');
+
+  const cover = el('div', 'hero-cover');
+  const cimg = document.createElement('img');
+  cimg.alt = top.canonical_title || '';
+  cimg.referrerPolicy = 'no-referrer';
+  cimg.src = coverProxyUrl(top.cover_path, 200);
+  cimg.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+  cimg.onerror = () => {
+    cimg.style.display = 'none';
+    cover.style.background = coverStyle(top.canonical_title);
   };
-  cov.appendChild(covImg);
-  card.appendChild(cov);
+  cover.appendChild(cimg);
+  cover.title = '点击打开作品手账详情';
+  cover.addEventListener('click', () => openDetail(top.id));
+  left.appendChild(cover);
 
-  const main = el('div', 'washi-focus-main');
-  main.appendChild(el('div', 'washi-focus-title', top.canonical_title));
+  const info = el('div', 'hero-info');
+  const kickerRow = el('div', 'hero-kicker-row');
+  kickerRow.appendChild(el('span', 'hero-kicker', `● 正在追看 (${items.length})`));
+  info.appendChild(kickerRow);
 
-  const barRow = el('div', 'washi-focus-bar-row');
-  const track = el('div', 'washi-focus-track');
-  const fill = el('i');
-  fill.style.width = pct + '%';
-  track.appendChild(fill);
-  barRow.appendChild(track);
-  barRow.appendChild(el('span', 'washi-focus-pct', `${pct}%`));
-  main.appendChild(barRow);
+  const titleRow = el('div', 'hero-title-row');
+  const titleEl = el('div', 'hero-title', top.canonical_title || '');
+  titleEl.addEventListener('click', () => openDetail(top.id));
+  titleRow.appendChild(titleEl);
+  const metaBits = [
+    top.release_year ? `${top.release_year} 年` : null,
+    top.anime_type || null,
+    top.rating ? `★ ${top.rating}` : null
+  ].filter(Boolean);
+  if (metaBits.length) titleRow.appendChild(el('span', 'hero-meta-text', metaBits.join(' · ')));
+  info.appendChild(titleRow);
 
-  main.appendChild(
-    el('div', 'washi-focus-meta', tot > 0 ? `已看 ${cur} / ${tot} 集` : '还没设置总集数')
+  const progWrap = el('div', 'hero-progress-wrap');
+  const progBar = el('div', 'hero-progress-bar');
+  const progFill = el('div', 'hero-progress-fill');
+  progFill.style.width = pct + '%';
+  progBar.appendChild(progFill);
+  progWrap.appendChild(progBar);
+  progWrap.appendChild(
+    el('span', 'hero-progress-label', tot > 0 ? `已看 ${cur} / ${tot} 集 (${pct}%)` : '尚未设置总集数')
   );
+  info.appendChild(progWrap);
 
-  const btn = el('button', 'washi-stamp-btn');
-  btn.type = 'button';
-  if (tot > 0 && cur >= tot) {
-    btn.textContent = '✓ 已全部看完';
-    btn.disabled = true;
-  } else {
-    btn.textContent = cur > 0 ? `✓ 盖章 +1 集（第 ${cur + 1} 集）` : '✓ 开张盖章（第 1 集）';
-    btn.addEventListener('click', () => stampNextEpisode(top));
+  left.appendChild(info);
+  hero.appendChild(left);
+
+  // ---- 中：刻度娘气泡 ----
+  const mascot = el('div', 'hero-mascot-card');
+  mascot.title = '点击查看刻刻（Keke）设定档案';
+  const mimg = document.createElement('img');
+  mimg.src = '/assets/keke-chibi.png';
+  mimg.alt = '刻刻';
+  mimg.className = 'hero-mascot-avatar';
+  const speech = el('div', 'hero-mascot-speech');
+  speech.innerHTML = getMascotContextQuote(items);
+  mascot.appendChild(mimg);
+  mascot.appendChild(speech);
+  mascot.addEventListener('click', () => openMascotGalleryModal());
+  hero.appendChild(mascot);
+
+  // ---- 右：按钮组 ----
+  const actions = el('div', 'hero-actions');
+  if (tot > 0 && cur < tot) {
+    const nextEp = Math.min(tot, cur + 1);
+    const bump = el('button', 'hero-bump-btn', `盖章 +1 集 (第${nextEp}集)`);
+    bump.type = 'button';
+    bump.addEventListener('click', async () => {
+      bump.disabled = true;
+      await stampNextEpisode(top);
+      bump.disabled = false;
+    });
+    actions.appendChild(bump);
+  } else if (tot > 0) {
+    actions.appendChild(el('span', 'hero-progress-label', '✓ 已看完'));
   }
-  main.appendChild(btn);
-  card.appendChild(main);
 
-  const side = el('div', 'washi-focus-side');
-  side.innerHTML =
-    '<div class="washi-stars"><b>★</b><b>★</b><b>★</b></div>' +
-    '<div class="washi-note">今天也要<br>元气满满哦！</div>';
-  card.appendChild(side);
+  const detailBtn = el('button', 'btn small', '翻开详情');
+  detailBtn.type = 'button';
+  detailBtn.addEventListener('click', () => openDetail(top.id));
+  actions.appendChild(detailBtn);
 
-  strip.appendChild(card);
-
-  // 还有别的在追作品时，用小字提示，避免用户以为只剩这一部
-  if (items.length > 1) {
-    const rest = el('div', 'washi-focus-rest');
-    rest.textContent = `另有 ${items.length - 1} 部在追，见下方书架`;
-    strip.appendChild(rest);
-  }
+  hero.appendChild(actions);
+  strip.appendChild(hero);
 }
 
 function renderWatchingFocusStrip() {
@@ -1328,6 +1360,12 @@ function renderWatchingFocusStrip() {
 
   strip.hidden = false;
   strip.innerHTML = '';
+
+  // 手帐主题：走独立焦点横幅（自带标题与气泡），不走下面的标题行 + 小卡
+  if (document.documentElement.getAttribute('data-ui-theme') === 'washi') {
+    renderWashiFocus(strip, watchingItems);
+    return;
+  }
 
   const head = el('div', 'watching-focus-head');
   const titleWrap = el('div', 'watching-focus-title');
@@ -1364,13 +1402,6 @@ function renderWatchingFocusStrip() {
   }
   head.appendChild(rightWrap);
   strip.appendChild(head);
-
-  // 手帐主题：改成一张大卡（其余四套主题照旧铺小卡）
-  // 用 DOM 上的 data-ui-theme 判断，和 CSS 保持同一来源，避免 state 与样式不同步
-  if (document.documentElement.getAttribute('data-ui-theme') === 'washi') {
-    renderWashiFocus(strip, watchingItems);
-    return;
-  }
 
   const cardsWrap = el('div', 'watching-focus-cards');
   const displayItems = state.watchingStripExpanded ? watchingItems : watchingItems.slice(0, 4);
