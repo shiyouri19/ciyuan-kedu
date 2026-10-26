@@ -3564,3 +3564,169 @@ button, input, select, textarea {
   border-color: var(--line);
   color: var(--ink);
 }
+
+/* ---- 手帐主题：书脊 + 盖章徽章 ---- */
+/* 书脊用伪元素做，不往卡片里塞多余节点，避免影响现有 flex/grid 布局 */
+[data-ui-theme="washi"] #list.grid .card {
+  position: relative;
+  margin-left: 9px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+[data-ui-theme="washi"] #list.grid .card::before {
+  content: '';
+  position: absolute;
+  left: -9px; top: 0; bottom: 0;
+  width: 9px;
+  background: linear-gradient(90deg, #b0794f, #8a5334 55%, #6f3f26);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.18);
+}
+
+/* 圆形盖章：右下角，压在封面上 */
+[data-ui-theme="washi"] .washi-stamp {
+  position: absolute;
+  right: 6px; bottom: 6px;
+  width: 33px; height: 33px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  background: rgba(179, 74, 50, 0.92);
+  color: #fff6ee;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 8px;
+  line-height: 1.15;
+  transform: rotate(-8deg);
+  box-shadow: 0 1px 5px rgba(90, 50, 30, 0.32);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* 手帐版：卡片标题用衬线，像书名 */
+[data-ui-theme="washi"] #list.grid .card-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+/* ---- 手帐主题：正在追看大卡 ---- */
+/* 外层容器退成透明，让大卡自己撑起视觉 */
+[data-ui-theme="washi"] .watching-focus-strip {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0 0 14px;
+}
+
+[data-ui-theme="washi"] .washi-focus {
+  position: relative;
+  display: flex; align-items: center; gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px 16px 15px;
+  box-shadow: 0 2px 10px rgba(120, 95, 60, 0.08), 0 1px 2px rgba(120, 95, 60, 0.05);
+  overflow: hidden;
+}
+
+/* 左侧尺子刻度 */
+[data-ui-theme="washi"] .washi-ruler {
+  width: 11px; align-self: stretch; flex: none;
+  background-image: repeating-linear-gradient(180deg, var(--line-2) 0 1px, transparent 1px 8px);
+  opacity: .9;
+}
+
+/* 右上角胶带 */
+[data-ui-theme="washi"] .washi-focus::after {
+  content: ''; position: absolute; right: 118px; top: -4px;
+  width: 58px; height: 16px;
+  background: rgba(216, 154, 92, 0.26);
+  border-left: 1px dashed rgba(120, 95, 60, 0.16);
+  border-right: 1px dashed rgba(120, 95, 60, 0.16);
+  transform: rotate(-3.5deg);
+  pointer-events: none;
+}
+
+[data-ui-theme="washi"] .washi-focus-cover {
+  width: 88px; height: 122px; flex: none;
+  border-radius: 7px; overflow: hidden;
+  box-shadow: 0 3px 10px rgba(90, 70, 40, 0.22);
+  background: var(--hover-bg);
+}
+[data-ui-theme="washi"] .washi-focus-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+[data-ui-theme="washi"] .washi-focus-main { flex: 1; min-width: 0; }
+[data-ui-theme="washi"] .washi-focus-title {
+  font-family: var(--font-display);
+  font-size: 21px; font-weight: 600; letter-spacing: .4px;
+  margin-bottom: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+[data-ui-theme="washi"] .washi-focus-bar-row { display: flex; align-items: center; gap: 11px; margin-bottom: 8px; }
+[data-ui-theme="washi"] .washi-focus-track {
+  flex: 1; max-width: 300px; height: 8px;
+  background: var(--hover-bg); border-radius: 4px; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(120, 95, 60, 0.1);
+}
+[data-ui-theme="washi"] .washi-focus-track i {
+  display: block; height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--warn), var(--accent));
+}
+[data-ui-theme="washi"] .washi-focus-pct {
+  font-size: 12px; font-weight: 600; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-ui-theme="washi"] .washi-focus-meta {
+  font-size: 12px; color: var(--ink-2); margin-bottom: 13px;
+}
+
+[data-ui-theme="washi"] .washi-stamp-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #fff9f2;
+  border: none; cursor: pointer;
+  border-radius: 8px; padding: 8px 16px;
+  font-size: 12.5px; font-family: inherit; font-weight: 500;
+  box-shadow: 0 2px 6px rgba(179, 74, 50, 0.26);
+  transition: transform .12s, box-shadow .12s;
+}
+[data-ui-theme="washi"] .washi-stamp-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(179, 74, 50, 0.32);
+}
+[data-ui-theme="washi"] .washi-stamp-btn:disabled {
+  background: var(--line-2); color: var(--ink-3); cursor: default; box-shadow: none;
+}
+
+[data-ui-theme="washi"] .washi-focus-side {
+  width: 100px; flex: none;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+}
+[data-ui-theme="washi"] .washi-stars { display: flex; gap: 4px; }
+[data-ui-theme="washi"] .washi-stars b {
+  color: var(--warn); font-size: 11px; font-weight: 400; opacity: .85;
+}
+[data-ui-theme="washi"] .washi-note {
+  background: rgba(216, 154, 92, 0.14);
+  border: 1px dashed rgba(179, 74, 50, 0.32);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-family: var(--font-display);
+  font-size: 11px; line-height: 1.7;
+  color: var(--ink-2); text-align: center;
+  transform: rotate(-1.5deg);
+}
+
+[data-ui-theme="washi"] .washi-focus-rest {
+  font-size: 11px; color: var(--ink-3);
+  margin-top: 9px; padding-left: 3px;
+}
+
+/* 盖章徽章：其他主题下不显示 */
+.washi-stamp { display: none; }
+[data-ui-theme="washi"] .washi-stamp {
+  display: grid;
+  white-space: pre-line;
+}

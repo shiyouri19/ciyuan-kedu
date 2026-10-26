@@ -165,7 +165,7 @@ const state = {
   editingId: null,
   loading: false,
   view: 'list',
-  uiTheme: 'cinema',
+  uiTheme: 'washi',
   mediaSummaryByAnime: new Map(),
   layoutMode: (() => {
     try {
@@ -920,6 +920,18 @@ function cardEl(item) {
   const stKey = item.status || 'want';
   const badge = el('span', `badge status-${stKey}`, STATUS_LABEL[stKey] ?? '想看');
   cover.appendChild(badge);
+
+  // 手帐主题的圆形盖章（其他主题下由 CSS 隐藏）
+  if (!state.ledgerBatchMode) {
+    const cur = Number(item.episode_current || 0);
+    const tot = Number(item.episode_total || 0);
+    if (tot === 0 || cur < tot) {
+      const stamp = el('span', 'washi-stamp');
+      stamp.textContent = cur > 0 ? `盖章\n+1` : `开张\n盖章`;
+      stamp.title = `盖章记录第 ${cur + 1} 集`;
+      cover.appendChild(stamp);
+    }
+  }
   const mediaPill = buildMediaStatusPill(item.id);
   if (mediaPill) {
     cover.appendChild(mediaPill);
@@ -1205,6 +1217,99 @@ function openMascotGalleryModal() {
   $("#modal").hidden = false;
 }
 
+/** 手帐主题的盖章：标记该作品的下一个未看集 */
+async function stampNextEpisode(item) {
+  try {
+    const res = await api(`/api/anime/${item.id}/episodes`);
+    const p = res.progress || {};
+    if (p.at_end) {
+      toast(`「${item.canonical_title}」已经全部看完了`);
+      return;
+    }
+    const target = Number(p.next_episode || 0);
+    for (const season of res.seasons || []) {
+      const ep = (season.episodes || []).find((e) => Number(e.episode_number) === target);
+      if (!ep) continue;
+      await api(`/api/episodes/${ep.id}/watch`, { method: 'POST', body: { watched: true } });
+      toast(`已盖章：「${item.canonical_title}」第 ${target} 集`);
+      await load();
+      return;
+    }
+    toast('没找到下一集，打开详情看看', true);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+/**
+ * 手帐主题：把「正在追看」渲染成一张大卡（封面 + 进度 + 盖章按钮 + 便签）。
+ * 其他四套主题仍走原来的四张小卡，不受影响。
+ */
+function renderWashiFocus(strip, items) {
+  const top = items[0];
+  const cur = Number(top.episode_current || 0);
+  const tot = Number(top.episode_total || 0);
+  const pct = tot > 0 ? Math.round((cur / tot) * 100) : 0;
+
+  const card = el('div', 'washi-focus');
+  card.appendChild(el('div', 'washi-ruler'));
+
+  const cov = el('div', 'washi-focus-cover');
+  const covImg = document.createElement('img');
+  covImg.alt = top.canonical_title || '';
+  covImg.referrerPolicy = 'no-referrer';
+  covImg.src = coverProxyUrl(top.cover_path, 400);
+  covImg.onerror = () => {
+    covImg.style.display = 'none';
+    cov.style.background = coverStyle(top.canonical_title);
+  };
+  cov.appendChild(covImg);
+  card.appendChild(cov);
+
+  const main = el('div', 'washi-focus-main');
+  main.appendChild(el('div', 'washi-focus-title', top.canonical_title));
+
+  const barRow = el('div', 'washi-focus-bar-row');
+  const track = el('div', 'washi-focus-track');
+  const fill = el('i');
+  fill.style.width = pct + '%';
+  track.appendChild(fill);
+  barRow.appendChild(track);
+  barRow.appendChild(el('span', 'washi-focus-pct', `${pct}%`));
+  main.appendChild(barRow);
+
+  main.appendChild(
+    el('div', 'washi-focus-meta', tot > 0 ? `已看 ${cur} / ${tot} 集` : '还没设置总集数')
+  );
+
+  const btn = el('button', 'washi-stamp-btn');
+  btn.type = 'button';
+  if (tot > 0 && cur >= tot) {
+    btn.textContent = '✓ 已全部看完';
+    btn.disabled = true;
+  } else {
+    btn.textContent = cur > 0 ? `✓ 盖章 +1 集（第 ${cur + 1} 集）` : '✓ 开张盖章（第 1 集）';
+    btn.addEventListener('click', () => stampNextEpisode(top));
+  }
+  main.appendChild(btn);
+  card.appendChild(main);
+
+  const side = el('div', 'washi-focus-side');
+  side.innerHTML =
+    '<div class="washi-stars"><b>★</b><b>★</b><b>★</b></div>' +
+    '<div class="washi-note">今天也要<br>元气满满哦！</div>';
+  card.appendChild(side);
+
+  strip.appendChild(card);
+
+  // 还有别的在追作品时，用小字提示，避免用户以为只剩这一部
+  if (items.length > 1) {
+    const rest = el('div', 'washi-focus-rest');
+    rest.textContent = `另有 ${items.length - 1} 部在追，见下方书架`;
+    strip.appendChild(rest);
+  }
+}
+
 function renderWatchingFocusStrip() {
   const strip = $('#watchingFocusStrip');
   if (!strip) return;
@@ -1234,7 +1339,7 @@ function renderWatchingFocusStrip() {
   const mascotCompanion = el('div', 'watching-mascot-companion');
   mascotCompanion.title = '点击查看看板娘「刻度娘 (Kedu-chan)」AI 娘化立绘档案';
   const mImg = document.createElement('img');
-  mImg.src = '/mascot-chibi.png';
+  mImg.src = '/assets/keke-chibi.png';
   mImg.alt = '刻度娘';
   mImg.className = 'watching-mascot-avatar';
   const mSpeech = el('span', 'watching-mascot-speech');
@@ -1259,6 +1364,13 @@ function renderWatchingFocusStrip() {
   }
   head.appendChild(rightWrap);
   strip.appendChild(head);
+
+  // 手帐主题：改成一张大卡（其余四套主题照旧铺小卡）
+  // 用 DOM 上的 data-ui-theme 判断，和 CSS 保持同一来源，避免 state 与样式不同步
+  if (document.documentElement.getAttribute('data-ui-theme') === 'washi') {
+    renderWashiFocus(strip, watchingItems);
+    return;
+  }
 
   const cardsWrap = el('div', 'watching-focus-cards');
   const displayItems = state.watchingStripExpanded ? watchingItems : watchingItems.slice(0, 4);
