@@ -39,3 +39,7 @@ desktop.ini
 .push-log.txt
 .compare/
 .commit-msg.txt
+
+# 吉祥物素材与设计样机：仅本地保留，不进公开仓库
+web/preview-assets/
+web/preview-*.html
