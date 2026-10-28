@@ -1,7 +1,7 @@
 # 依赖与构建产物
 node_modules/
 
-# 个人配置：含本机路径与代理，不进版本库
+# 个人配置：含本机路径与代理
 config.json
 
 # 数据文件（正常不会出现在项目里，双保险）
@@ -10,7 +10,7 @@ data/
 *.db-wal
 *.db-shm
 
-# 日志与临时文件
+# 日志与系统文件
 *.log
 logs/
 .DS_Store
@@ -24,27 +24,18 @@ desktop.ini
 # 工作区元数据，不属于项目
 .workbuddy/
 
-# 早期方案草稿（含内部讨论记录，不公开）
+# 内部草稿与本地运维脚本
 方案.md
-
-# 本地运维脚本
 推送到GitHub.bat
 
-# 调试用截图与浏览器临时 profile
+# 调试临时文件
 .edge-tmp/
 .shot-*.png
 .check.mjs
-
-# 推送日志（本地排障用）
-.push-log.txt
 .compare/
-.commit-msg.txt
-
-# 吉祥物素材与设计样机：仅本地保留，不进公开仓库
-web/preview-assets/
-web/preview-*.html
-
-# Keke 吉祥物素材：仅本地保留，不进公开仓库
-web/assets/keke-*
 .crop*.py
-.companion*
+.commit-msg.txt
+.push-log.txt
+
+# 吉祥物素材：仅本地保留，不随仓库公开
+web/assets/keke-*
