@@ -51,95 +51,22 @@ const UI_LAYOUT_STORAGE_KEY = 'fanzhang_ui_layout_v1';
 
 const UI_EDITIONS = [
   {
-    key: 'editorial',
-    shortName: '手账版',
-    name: '版本一 · 温润手账本 (Editorial Ledger)',
-    recommendedLayout: 'grid',
-    scene: '日常追番记账 · 长文观后感 · 动画生涯个人喜好表导出',
-    desc: '采用暖米白纸感底色 (#F6F4EE) 与普鲁士蓝印章主色 (#185FA5)，搭配人文衬线标题与 2:3 经典海报墙。适合慢节奏记录分集打分、撰写长评感想与生成分享海报。',
-    bg: '#f6f4ee',
-    card: '#ffffff',
-    text: '#22201c',
-    accent: '#185fa5',
-    badgeBg: '#185fa5',
-    swatches: [
-      { label: '暖米宣纸', hex: '#F6F4EE' },
-      { label: '普鲁士蓝', hex: '#185FA5' },
-      { label: '手账墨黑', hex: '#22201C' }
-    ]
-  },
-  {
-    key: 'cinema',
-    shortName: '放映室',
-    name: '版本二 · 暗夜放映室 (Cinema Dark)',
-    recommendedLayout: 'grid',
-    scene: '夜间沉浸看番 · 本地播放器联动 · 2:3 蓝光海报墙浏览',
-    desc: '专为夜间关灯看番与调用 PotPlayer / VLC / IINA 本地播放场景打造。深邃曜石蓝黑 (#0B0F17) 降低屏幕眩光，电光青 (#38BDF8) 进度条与琥珀金 (#F59E0B) 评分角标让番剧封面成为视觉绝对核心。',
-    bg: '#0b0f17',
-    card: '#151e30',
-    text: '#f1f5f9',
-    accent: '#38bdf8',
-    badgeBg: '#0284c7',
-    swatches: [
-      { label: '曜石蓝黑', hex: '#0B0F17' },
-      { label: '深海炭蓝', hex: '#151E30' },
-      { label: '电光青', hex: '#38BDF8' },
-      { label: '琥珀星标', hex: '#F59E0B' }
-    ]
-  },
-  {
-    key: 'studio',
-    shortName: '工作台',
-    name: '版本三 · 极客工作台 (Studio Pro)',
-    recommendedLayout: 'table',
-    scene: '百部以上大库管理 · NAS 本地文件夹清洗 · 字幕组磁力链聚合',
-    desc: '引入左侧常驻深色工作台导航栏 (Sidebar) + 宽屏全息数据台账表 (Table View)。所有集数、时长、评分均采用等宽对齐数字 (tabular-nums)，支持单屏高密度检视数十部作品并一键批量操作。',
-    bg: '#f3f4f6',
-    card: '#ffffff',
-    text: '#111827',
-    accent: '#4f46e5',
-    badgeBg: '#4f46e5',
-    swatches: [
-      { label: '石墨侧栏', hex: '#111827' },
-      { label: '极客靛青', hex: '#4F46E5' },
-      { label: '冷灰台面', hex: '#F3F4F6' }
-    ]
-  },
-  {
-    key: 'bento',
-    shortName: '画报版',
-    name: '版本四 · 清透画报风 (Bento Magazine)',
-    recommendedLayout: 'board',
-    scene: '季度新番周历导览 · 状态分栏看板 · 手机 PWA 与电脑跨端云同步',
-    desc: '以薄荷冷白 (#EEF4F6) 与翠竹青 (#0D9488) 构建现代画报卡片，默认搭配四栏状态看板 (在看 / 想看 / 已看完 / 暂停·弃番) 与顶部「正在追番 · 快捷打卡」焦点舱，一眼掌握本季追番节奏。',
-    bg: '#eef4f6',
-    card: '#ffffff',
-    text: '#0f2933',
-    accent: '#0d9488',
-    badgeBg: '#0d9488',
-    swatches: [
-      { label: '薄荷冷白', hex: '#EEF4F6' },
-      { label: '翠竹青', hex: '#0D9488' },
-      { label: '深青墨色', hex: '#0F2933' }
-    ]
-  },
-  {
     key: 'washi',
     shortName: '手帐',
-    name: '版本五 · 温润手帐 (Washi Ledger)',
+    name: '温润手帐 (Washi Ledger)',
     recommendedLayout: 'grid',
     scene: '纸质手账记录 · 盖章打卡 · 书脊式海报墙',
-    desc: '米黄纸感底色 (#F7F2E7) 与砖红印章主色 (#B34A32)，配衬线标题与柔和投影。书脊式海报卡、圆形盖章徽章、尺子刻度与胶带装饰，把冷冰冰的台账变成一本温暖的手帐。',
-    bg: '#f7f2e7',
-    card: '#fffdf7',
-    text: '#3a3226',
-    accent: '#b34a32',
-    badgeBg: '#b34a32',
+    desc: '米黄纸感底色与砖红印章主色，配衬线标题与柔和投影。书脊式海报卡、圆形盖章徽章、尺子刻度与胶带装饰。',
+    bg: '#f6f1e5',
+    card: '#fdfaf2',
+    text: '#2b211c',
+    accent: '#c0402a',
+    badgeBg: '#c0402a',
     swatches: [
-      { label: '米黄纸', hex: '#F7F2E7' },
-      { label: '砖红印章', hex: '#B34A32' },
-      { label: '暖橙', hex: '#D89A5C' },
-      { label: '深褐墨', hex: '#3A3226' }
+      { label: '米黄纸', hex: '#F6F1E5' },
+      { label: '砖红印章', hex: '#C0402A' },
+      { label: '暖橙', hex: '#C47A24' },
+      { label: '深褐墨', hex: '#2B211C' }
     ]
   }
 ];
@@ -423,18 +350,6 @@ function buildFallbackPosterDataUri(title) {
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 }
 
-function resolveBuiltInPoster(title) {
-  const t = String(title || '').trim();
-  if (!t) return '';
-  if (t.includes('芙莉莲')) return '/posters/frieren.jpg';
-  if (t.includes('药屋')) return '/posters/kusuriya.jpg';
-  if (t.includes('迷宫饭')) return '/posters/dungeon_meshi.jpg';
-  if (t.includes('上低音号') || t.includes('京吹')) return '/posters/euphonium.jpg';
-  if (t.includes('胆大党') || t.includes('当哒当')) return '/posters/dandadan.jpg';
-  if (t.includes('孤独摇滚')) return '/posters/bocchi.jpg';
-  if (t.includes('败犬女主')) return '/posters/makeine.jpg';
-  return '';
-}
 
 function paintCover(node, title, coverPath, width = 400) {
   node.style.background = coverStyle(title);
@@ -444,9 +359,8 @@ function paintCover(node, title, coverPath, width = 400) {
   const proxyUrl = coverProxyUrl(coverPath, width);
   const rawRemoteUrl = resizeBgmUrl(extractRawCoverUrl(coverPath), width);
   const rawOriginalUrl = extractRawCoverUrl(coverPath).replace(/^(https?:\/\/lain\.bgm\.tv)\/r\/\d+\//, '$1/');
-  const builtInPoster = resolveBuiltInPoster(title);
   const svgFallback = buildFallbackPosterDataUri(title);
-  const candidates = [proxyUrl, rawRemoteUrl, rawOriginalUrl, builtInPoster, svgFallback].filter((x, i, arr) => x && arr.indexOf(x) === i);
+  const candidates = [proxyUrl, rawRemoteUrl, rawOriginalUrl, svgFallback].filter((x, i, arr) => x && arr.indexOf(x) === i);
 
   let idx = 0;
   const img = document.createElement('img');
@@ -560,7 +474,6 @@ function applyUiTheme(themeKey, { switchRecommendedLayout = false, silent = fals
   renderLayoutSwitcher();
   renderStudioSidebar();
   if (state.view === 'list') renderList();
-  else if (state.view === 'ui-studio') renderUiStudioView();
   if (!silent) {
     toast(`已切换至「${ed.name}」`);
   }
@@ -577,7 +490,6 @@ function setLayoutMode(modeKey) {
   renderUiQuickBar();
   renderLayoutSwitcher();
   if (state.view === 'list') renderList();
-  else if (state.view === 'ui-studio') renderUiStudioView();
 }
 
 function renderUiQuickBar() {
@@ -616,17 +528,6 @@ function renderUiQuickBar() {
     });
     right.appendChild(lbtn);
   }
-
-  const studioJumpBtn = el(
-    'button',
-    'ui-theme-chip' + (state.view === 'ui-studio' ? ' active' : ''),
-    state.view === 'ui-studio' ? '← 返回动画账本' : '对比 4 版 UI 样本 & 评估报告 →'
-  );
-  studioJumpBtn.type = 'button';
-  studioJumpBtn.addEventListener('click', () => {
-    switchView(state.view === 'ui-studio' ? 'list' : 'ui-studio');
-  });
-  right.appendChild(studioJumpBtn);
 
   inner.appendChild(left);
   inner.appendChild(right);
@@ -729,7 +630,7 @@ function renderStudioSidebar() {
   const toolActions = [
     { label: '本地媒体库与匹配结果', badge: mediaBadge, onClick: () => openMediaScanModal() },
     { label: '生成年度总结/喜好表', badge: '海报', onClick: () => openShareGeneratorModal('poster') },
-    { label: '看板娘「刻度娘」档案', badge: '立绘', onClick: () => openMascotGalleryModal() },
+    { label: '看板娘「刻刻」档案', badge: '立绘', onClick: () => openMascotGalleryModal() },
     { label: '数据源、云同步与设置', badge: '配置', onClick: () => openSettingsModal() }
   ];
   for (const t of toolActions) {
@@ -742,7 +643,7 @@ function renderStudioSidebar() {
   }
 
   const foot = el('div', 'studio-side-footer');
-  foot.appendChild(el('div', '', '主题：深夜放映室 (Midnight)'));
+  foot.appendChild(el('div', '', '主题：温润手帐 (Washi)'));
   foot.appendChild(el('div', '', '快捷键：/ 搜索 · 1/2/3 切视图 · m 媒体库'));
   side.appendChild(foot);
 }
@@ -1181,9 +1082,9 @@ function getMascotContextQuote(watchingItems) {
   const current = Number(top.episode_current ?? 0);
   if (total > 0 && watched < total) {
     const nextEp = Math.min(total, (current || watched) + 1);
-    return `刻度娘伴读：正在追《<strong>${escapeHtml(top.canonical_title)}</strong>》，下一集 EP.${nextEp}，看完点 +1 盖章打卡哦！`;
+    return `刻刻伴读：正在追《<strong>${escapeHtml(top.canonical_title)}</strong>》，下一集 EP.${nextEp}，看完点 +1 盖章打卡哦！`;
   }
-  return `刻度娘伴读：当前共 <strong>${watchingItems.length}</strong> 部番剧在看，点我查看 AI 娘化立绘档案～`;
+  return `刻刻伴读：当前共 <strong>${watchingItems.length}</strong> 部番剧在看，点我查看 AI 娘化立绘档案～`;
 }
 
 function openMascotGalleryModal() {
@@ -1246,7 +1147,7 @@ async function stampNextEpisode(item) {
 
 /**
  * 手帐主题：正在追看焦点横幅。
- * 结构取自 v1.0.0 的 Stage 17：左侧封面+信息，中间刻度娘气泡，右侧按钮组。
+ * 结构取自 v1.0.0 的 Stage 17：左侧封面+信息，中间刻刻气泡，右侧按钮组。
  * 支持：多部在看时用顶部小标签切换焦点、收起/展开（收起只剩番名）。
  */
 function renderWashiFocus(strip, items) {
@@ -1330,7 +1231,7 @@ function renderWashiFocus(strip, items) {
   left.appendChild(info);
   hero.appendChild(left);
 
-  // ---- 中：刻度娘气泡 ----
+  // ---- 中：刻刻气泡 ----
   const mascot = el('div', 'hero-mascot-card');
   mascot.title = '点击查看刻刻（Keke）设定档案';
   const mimg = document.createElement('img');
@@ -1416,10 +1317,10 @@ function renderWatchingFocusStrip() {
 
   const rightWrap = el('div', 'inline-row');
   const mascotCompanion = el('div', 'watching-mascot-companion');
-  mascotCompanion.title = '点击查看看板娘「刻度娘 (Kedu-chan)」AI 娘化立绘档案';
+  mascotCompanion.title = '点击查看看板娘「刻刻 (Keke)」AI 娘化立绘档案';
   const mImg = document.createElement('img');
   mImg.src = '/assets/keke-chibi.png';
-  mImg.alt = '刻度娘';
+  mImg.alt = '刻刻';
   mImg.className = 'watching-mascot-avatar';
   const mSpeech = el('span', 'watching-mascot-speech');
   mSpeech.innerHTML = getMascotContextQuote(watchingItems);
@@ -1906,7 +1807,7 @@ function renderList() {
 
 async function load() {
   if (state.loading) return;
-  if (state.view === 'stats' || state.view === 'ui-studio') return;
+  if (state.view === 'stats') return;
   state.loading = true;
   $('#loading').hidden = false;
 
@@ -3269,14 +3170,11 @@ async function switchView(view) {
   state.view = view;
   const isStats = view === 'stats';
   const isSeasonal = view === 'seasonal';
-  const isUiStudio = view === 'ui-studio';
   const isList = view === 'list';
 
   $('#list').hidden = !isList;
   $('#stats').hidden = !isStats;
   $('#seasonal').hidden = !isSeasonal;
-  const uiStudioEl = $('#uiStudio');
-  if (uiStudioEl) uiStudioEl.hidden = !isUiStudio;
   const focusStrip = $('#watchingFocusStrip');
   if (focusStrip && !isList) focusStrip.hidden = true;
   $('#empty').hidden = true;
@@ -3288,14 +3186,9 @@ async function switchView(view) {
   $('#statsBtn').classList.toggle('active-nav', isStats);
   $('#seasonalBtn').textContent = isSeasonal ? '返回账本' : '新番导览';
   $('#seasonalBtn').classList.toggle('active-nav', isSeasonal);
-  const uiBtn = $('#uiStudioBtn');
-  if (uiBtn) {
-    uiBtn.textContent = isUiStudio ? '返回账本' : 'UI 样本 (4版)';
-    uiBtn.classList.toggle('active-nav', isUiStudio);
-  }
 
   if (!isList) {
-    $('#stat').textContent = isUiStudio ? '当前视图：应用诊断评估与 4 套定制 UI 视觉样本展台' : '';
+    $("#stat").textContent = '';
     const batchBar = $('#ledgerBatchBar');
     if (batchBar) batchBar.hidden = true;
   }
@@ -3305,253 +3198,9 @@ async function switchView(view) {
   closeDrawer();
   if (isStats) await loadStats();
   else if (isSeasonal) await loadSeasonal();
-  else if (isUiStudio) renderUiStudioView();
   else await load();
 }
 
-function renderUiStudioView() {
-  const host = $('#uiStudio');
-  if (!host) return;
-  host.innerHTML = '';
-
-  const sampleItems = (state.allLibraryList.length ? state.allLibraryList : state.list).slice(0, 3);
-  const fallbackSamples = [
-    { canonical_title: '葬送的芙莉莲', status: 'completed', rating: 10, episode_watched: 28, episode_total: 28, release_year: 2023 },
-    { canonical_title: '药屋少女的呢喃 第二季', status: 'watching', rating: 9, episode_watched: 8, episode_total: 24, release_year: 2025 },
-    { canonical_title: '迷宫饭', status: 'watching', rating: 9, episode_watched: 16, episode_total: 24, release_year: 2024 }
-  ];
-  const previewList = sampleItems.length >= 3 ? sampleItems : fallbackSamples;
-
-  // 顶部说明与一键恢复样本按钮
-  const hero = el('div', 'studio-hero-banner');
-  const heroLeft = el('div', '');
-  heroLeft.appendChild(
-    el('h2', 'studio-hero-title', '应用全面评估优化报告 & 四版场景化 UI 视觉样本展台')
-  );
-  heroLeft.appendChild(
-    el(
-      'p',
-      'studio-hero-desc',
-      '根据「次元刻度」的四大真实使用途径（日常手账记账、夜间看番调起本地播放器、NAS/百部番剧全息台账、季度新番周历与跨端同步），为您定制了 4 套风格迥异的 UI 视觉方案与 3 种信息密度视图。点击任意样本卡片即可实时应用到全站。'
-    )
-  );
-  hero.appendChild(heroLeft);
-
-  const heroActions = el('div', 'inline-row');
-  const seedBtn = el('button', 'btn small', '注入/补齐演示番剧样本');
-  seedBtn.type = 'button';
-  seedBtn.addEventListener('click', async () => {
-    seedBtn.disabled = true;
-    try {
-      const res = await api('/api/demo-seed', { method: 'POST' });
-      toast(res.count > 0 ? `已注入 ${res.count} 部演示番剧` : '当前账本已包含全部演示番剧样本');
-      await load();
-      renderUiStudioView();
-    } catch (err) {
-      toast(err.message, true);
-    } finally {
-      seedBtn.disabled = false;
-    }
-  });
-  const mascotBtn = el('button', 'btn small', '看板娘「刻度娘」立绘档案');
-  mascotBtn.type = 'button';
-  mascotBtn.addEventListener('click', () => openMascotGalleryModal());
-  heroActions.appendChild(mascotBtn);
-  heroActions.appendChild(seedBtn);
-
-  const backBtn = el('button', 'btn primary small', '返回账本主视图 →');
-  backBtn.type = 'button';
-  backBtn.addEventListener('click', () => switchView('list'));
-  heroActions.appendChild(backBtn);
-  hero.appendChild(heroActions);
-  host.appendChild(hero);
-
-  // 评估与修复卡片
-  const auditGrid = el('div', 'audit-report-grid');
-  const audits = [
-    {
-      title: '1. 外部数据源 ID 冲突修复',
-      status: '已修复 · 147项测试全绿',
-      detail: '修复了 Bangumi 详情接口将内置新番库合成 ID（如《药屋少女的呢喃 第二季》486192）误匹配为线上同名编号非动画书籍词条的问题，增加条目类型 (type===2) 与标题重合度双重校验。'
-    },
-    {
-      title: '2. 全组件暗夜主题表面对比度对齐',
-      status: '深度优化 · 零刺眼白块',
-      detail: '全面排查并替换抽屉、弹窗、搜索候选框、分集编辑器与配额面板中的硬编码白底 (#fff/#fbfbf9) 与深蓝文字 (#0c447c)，在「暗夜放映室 (Cinema)」下实现完整沉浸对比度。'
-    },
-    {
-      title: '3. 追番打卡焦点舱与抽屉一键 +1',
-      status: '交互增强 · 闭环提示',
-      detail: '顶部「正在追番 · 快捷打卡」支持展开全部在看番剧与完结状态自动晋升询问；详情抽屉分集摘要栏新增主按钮「+1 记第 X 集」，无需在长分集网格中寻找。'
-    },
-    {
-      title: '4. 台账表行内快改与看板一键流转',
-      status: '工作台升级 · 3种布局',
-      detail: '高密台账表格支持行内直接下拉修改状态、点击标签胶囊筛选与一键标星收藏；四栏看板卡片内置「▶ 开始追番 / ✓ 标为看完」快捷流转按钮。'
-    },
-    {
-      title: '5. 筛选防迷失提示条与快捷键矩阵',
-      status: '易用性提升 · 键盘流',
-      detail: '当启用搜索词、标签或状态筛选时自动显示「当前筛选条件 · 一键重置」提示条；支持数字键 1/2/3 秒切网格/台账表/看板，以及 / 搜索、n 新增、s 新番、u 样本展台。'
-    },
-    {
-      title: '6. 弹窗宽度泄漏修复与双色分享海报',
-      status: '已修复 · 双主题导出',
-      detail: '修复了关闭本地识别/分享图宽弹窗后「新增作品」弹窗保持宽卡片的样式残留问题；年度总结图与个人喜好九宫格支持「典雅宣纸浅色 / 暗夜流光深色」双风格高清 PNG 导出。'
-    }
-  ];
-  for (const a of audits) {
-    const card = el('div', 'audit-card');
-    const head = el('div', 'audit-card-head');
-    head.appendChild(el('span', '', a.title));
-    head.appendChild(el('span', 'audit-status-tag', a.status));
-    card.appendChild(head);
-    card.appendChild(el('p', '', a.detail));
-    auditGrid.appendChild(card);
-  }
-  host.appendChild(auditGrid);
-
-  // 四版 UI 样本实时渲染对比矩阵
-  const sampleGrid = el('div', 'ui-sample-grid');
-  for (const ed of UI_EDITIONS) {
-    const isCurrent = state.uiTheme === ed.key;
-    const sCard = el('div', 'ui-sample-card' + (isCurrent ? ' active-edition' : ''));
-
-    // 迷你实时渲染画布
-    const preview = el('div', 'ui-mini-preview');
-    preview.style.background = ed.bg;
-    preview.style.color = ed.text;
-    preview.title = `点击立即切换为「${ed.name}」`;
-
-    const miniTop = el('div', 'ui-mini-topbar');
-    const brandSpan = el('span', '', `次元刻度 · ${ed.shortName}`);
-    if (ed.key === 'editorial') brandSpan.style.fontFamily = 'var(--font-display)';
-    miniTop.appendChild(brandSpan);
-
-    const pills = el('div', 'ui-mini-pills');
-    for (const [idx, pText] of ['在看', '新番导览', '+ 新增'].entries()) {
-      const p = el('span', 'ui-mini-pill', pText);
-      if (idx === 2) {
-        p.style.background = ed.accent;
-        p.style.color = '#ffffff';
-      } else {
-        p.style.background = ed.card;
-        p.style.border = `1px solid ${ed.accent}44`;
-      }
-      pills.appendChild(p);
-    }
-    miniTop.appendChild(pills);
-    preview.appendChild(miniTop);
-
-    // 根据推荐布局渲染不同的迷你样本结构
-    const miniCards = el('div', 'ui-mini-cards');
-    for (const item of previewList) {
-      const mItem = el('div', 'ui-mini-item');
-      mItem.style.background = ed.card;
-      mItem.style.border = `1px solid ${ed.key === 'cinema' ? '#222f46' : '#e2e8f0'}`;
-      if (ed.key === 'bento') mItem.style.borderRadius = '10px';
-
-      const poster = el('div', 'ui-mini-poster');
-      poster.style.background = coverStyle(item.canonical_title);
-      if (item.cover_path) {
-        const img = document.createElement('img');
-        img.src = coverProxyUrl(item.cover_path, 200);
-        img.alt = item.canonical_title;
-        img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
-        img.onerror = () => img.remove();
-        poster.appendChild(img);
-      }
-      const tagBadge = el('span', '', STATUS_LABEL[item.status] || '在看');
-      tagBadge.style.cssText = `position:relative;z-index:1;background:${ed.badgeBg};color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;`;
-      poster.appendChild(tagBadge);
-      mItem.appendChild(poster);
-
-      const mTitle = el('div', '', item.canonical_title);
-      mTitle.style.cssText = 'font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-      mItem.appendChild(mTitle);
-
-      const total = Number(item.episode_total || 12);
-      const watched = Number(item.episode_watched || 6);
-      const pct = Math.min(100, Math.round((watched / total) * 100));
-      const mBar = el('div', 'ui-mini-bar');
-      mBar.style.background = ed.key === 'cinema' ? '#1e293b' : '#e5e7eb';
-      const mFill = el('div', '');
-      mFill.style.cssText = `height:100%;width:${pct}%;background:${ed.accent};`;
-      mBar.appendChild(mFill);
-      mItem.appendChild(mBar);
-
-      miniCards.appendChild(mItem);
-    }
-    preview.appendChild(miniCards);
-    preview.addEventListener('click', () => {
-      applyUiTheme(ed.key, { switchRecommendedLayout: true });
-    });
-    sCard.appendChild(preview);
-
-    // 样本说明区
-    const sBody = el('div', 'ui-sample-body');
-    const sHead = el('div', 'ui-sample-head');
-    sHead.appendChild(el('div', 'ui-sample-title', ed.name));
-    if (isCurrent) {
-      sHead.appendChild(el('span', 'audit-status-tag', '当前使用中'));
-    }
-    sBody.appendChild(sHead);
-    sBody.appendChild(el('div', 'ui-sample-scene', `适用场景：${ed.scene}`));
-    sBody.appendChild(el('p', 'ui-sample-desc', ed.desc));
-
-    const swatches = el('div', 'ui-sample-swatches');
-    for (const sw of ed.swatches) {
-      const chip = el('span', 'ui-swatch-chip');
-      const dot = el('span', 'ui-theme-dot');
-      dot.style.background = sw.hex;
-      dot.style.border = '1px solid rgba(128,128,128,0.3)';
-      chip.appendChild(dot);
-      chip.appendChild(el('span', '', `${sw.label} ${sw.hex}`));
-      swatches.appendChild(chip);
-    }
-    sBody.appendChild(swatches);
-
-    const actions = el('div', 'ui-sample-actions');
-    const recLayoutLabel = LAYOUT_MODES.find((m) => m.key === ed.recommendedLayout)?.label || '海报网格';
-    actions.appendChild(el('span', 'ep-hint', `推荐搭配布局：${recLayoutLabel}`));
-
-    const btnGroup = el('div', 'inline-row');
-    const applyThemeOnlyBtn = el('button', 'btn small', '仅应用配色');
-    applyThemeOnlyBtn.type = 'button';
-    applyThemeOnlyBtn.addEventListener('click', () => {
-      applyUiTheme(ed.key, { switchRecommendedLayout: false });
-    });
-    btnGroup.appendChild(applyThemeOnlyBtn);
-
-    const applyFullBtn = el(
-      'button',
-      'btn small primary',
-      isCurrent ? '体验此版账本 →' : '应用此版 UI 并预览 →'
-    );
-    applyFullBtn.type = 'button';
-    applyFullBtn.addEventListener('click', () => {
-      applyUiTheme(ed.key, { switchRecommendedLayout: true });
-      switchView('list');
-    });
-    btnGroup.appendChild(applyFullBtn);
-    actions.appendChild(btnGroup);
-    sBody.appendChild(actions);
-
-    sCard.appendChild(sBody);
-    sampleGrid.appendChild(sCard);
-  }
-  host.appendChild(sampleGrid);
-}
-
-/* ---------------- 季度新番导览与每日放送周历 (B-003 + Stage 11/12 全量翻页版) ---------------- */
-
-const SEASONAL_SOURCE_OPTIONS = [
-  { key: 'all', label: '双源聚合 (Bangumi + 弹弹Play)' },
-  { key: 'bangumi', label: 'Bangumi 番组计划' },
-  { key: 'dandanplay', label: '弹弹Play' }
-];
-
-/** 把一份 /api/seasonal 的返回应用到界面状态 */
 function applySeasonalPayload(res) {
   state.seasonalItems = res.data ?? [];
   state.seasonalPage = res.page ?? 1;
@@ -7499,7 +7148,7 @@ function bindEvents() {
     if (bubble.hidden) {
       const q = MASCOT_QUOTES[mascotQuoteIdx % MASCOT_QUOTES.length];
       mascotQuoteIdx += 1;
-      bubble.innerHTML = `${q}<div style="margin-top:6px"><button type="button" class="link-btn" id="openMascotArchiveLink" style="font-size:11.5px;color:var(--accent)">查看「刻度娘」AI 娘化立绘设定 →</button></div>`;
+      bubble.innerHTML = `${q}<div style="margin-top:6px"><button type="button" class="link-btn" id="openMascotArchiveLink" style="font-size:11.5px;color:var(--accent)">查看「刻刻」AI 娘化立绘设定 →</button></div>`;
       bubble.hidden = false;
       $('#openMascotArchiveLink')?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -7513,9 +7162,6 @@ function bindEvents() {
       openMascotGalleryModal();
     }
   });
-  $('#uiStudioBtn')?.addEventListener('click', () =>
-    switchView(state.view === 'ui-studio' ? 'list' : 'ui-studio')
-  );
   $('#seasonalBtn')?.addEventListener('click', () =>
     switchView(state.view === 'seasonal' ? 'list' : 'seasonal')
   );
@@ -7573,7 +7219,6 @@ function bindEvents() {
       switchView(state.view === 'seasonal' ? 'list' : 'seasonal');
     } else if (e.key === 'u') {
       e.preventDefault();
-      switchView(state.view === 'ui-studio' ? 'list' : 'ui-studio');
     } else if (e.key === 'm') {
       e.preventDefault();
       openMediaScanModal();
@@ -7593,8 +7238,7 @@ function handleHash() {
     openForm(null);
   } else if (h === 'seasonal') {
     switchView('seasonal');
-  } else if (h === 'ui-studio' || h === 'samples') {
-    switchView('ui-studio');
+  } else if (false) {
   } else if (h === 'media') {
     openMediaScanModal();
   } else if (h === 'share') {

@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="次元刻度">
-<title>次元刻度 · 深夜放映室与动画账本</title>
+<title>次元刻度 · 动画观看手账</title>
 <meta name="description" content="个人动画观看手账与分集进度管理工具，支持弹弹Play与 Bangumi 双源中文检索聚合、季度新番全量导览与批量入库、本地媒体识别及跨端云同步。">
-<meta property="og:title" content="次元刻度 · 深夜放映室与动画账本">
+<meta property="og:title" content="次元刻度 · 动画观看手账">
 <meta property="og:description" content="个人动画观看手账与分集进度管理工具，支持弹弹Play与 Bangumi 双源中文检索聚合、季度新番全量导览与批量入库、本地媒体识别及跨端云同步。">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.png" type="image/png">
@@ -18,12 +18,11 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body data-ui-theme="washi">
-<div id="uiQuickBar" class="ui-quick-bar" aria-label="UI 视觉版本与布局快切栏" hidden></div>
 <div class="app-shell">
-  <aside id="studioSidebar" class="studio-sidebar" aria-label="深夜放映室主导航"></aside>
+  <aside id="studioSidebar" class="studio-sidebar" aria-label="主导航"></aside>
   <div class="app">
     <header class="topbar">
-      <div class="brand" id="brandHome" title="返回深夜放映室主账本">
+      <div class="brand" id="brandHome" title="返回账本首页">
         <img src="/icon.png" alt="" class="brand-logo" width="28" height="28">
         <span>次元刻度</span>
         <span class="brand-seal">放映室</span>
@@ -32,7 +31,6 @@
       <div class="searchbox">
         <input id="q" type="search" placeholder="搜索库内番名、简称、原名或别名… (按 / 聚焦)" autocomplete="off" spellcheck="false">
       </div>
-      <button id="uiStudioBtn" class="btn ui-studio-trigger" type="button" title="查看应用评估报告与 4 套定制 UI 样本对比展台" hidden>UI 样本 (4版)</button>
       <button id="seasonalBtn" class="btn" type="button" title="按年份和季度浏览当季新番并批量勾选入库 (快捷键 s)">新番导览</button>
       <button id="mediaScanBtn" class="btn" type="button" title="选择本地视频文件夹自动清洗字幕组文件名并同步集数 (快捷键 m)">媒体库识别</button>
       <button id="statsBtn" class="btn" type="button" title="查看全年 365 天追番热力图与统计报表">统计记录</button>
@@ -70,13 +68,12 @@
       <div id="list" class="grid" aria-live="polite"></div>
       <section id="seasonal" class="seasonal-view" hidden></section>
       <section id="stats" class="stats" hidden></section>
-      <section id="uiStudio" class="ui-studio-view" hidden></section>
       <div id="empty" class="empty" hidden>
-        <img src="/assets/keke-chibi.png" alt="刻度娘 Keke" class="empty-mascot" width="112" height="112">
+        <img src="/assets/keke-chibi.png" alt="刻刻 Keke" class="empty-mascot" width="112" height="112">
         <p id="emptyTitle">放映室还没有收录作品呢</p>
         <p class="empty-hint" id="emptyHint">点右上角「+ 新增作品」或去「新番导览」挑几部喜欢的番剧记入放映室吧～</p>
       </div>
-      <div id="loading" class="loading" hidden>正在点亮深夜放映室…</div>
+      <div id="loading" class="loading" hidden>正在翻开手账…</div>
     </main>
 
     <footer class="statusbar">
@@ -86,12 +83,12 @@
   </div>
 </div>
 
-<!-- 右下角常驻看板娘「刻度娘 (Kedu-chan)」放映室伴读精灵 -->
-<div id="mascotDock" class="mascot-dock" title="点击与看板娘「刻度娘」互动或查看 AI 娘化立绘档案">
+<!-- 右下角常驻看板娘「刻刻 (Keke)」放映室伴读精灵 -->
+<div id="mascotDock" class="mascot-dock" title="点击与看板娘「刻刻」互动或查看 AI 娘化立绘档案">
   <div id="mascotBubble" class="mascot-bubble" hidden></div>
-  <button id="mascotTrigger" class="mascot-trigger" type="button" aria-label="看板娘刻度娘">
-    <img src="/assets/keke-chibi.png" alt="刻度娘 Keke" width="54" height="54">
-    <span class="mascot-tag">刻度娘</span>
+  <button id="mascotTrigger" class="mascot-trigger" type="button" aria-label="看板娘刻刻">
+    <img src="/assets/keke-chibi.png" alt="刻刻 Keke" width="54" height="54">
+    <span class="mascot-tag">刻刻</span>
   </button>
 </div>
 
