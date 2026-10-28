@@ -4209,6 +4209,7 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   max-width: 460px;
 }
 
@@ -4218,12 +4219,12 @@ button, input, select, textarea {
   background: #ebe4d4;
   border-radius: 99px;
   overflow: hidden;
-  border: 1px solid rgba(197, 147, 65, 0.25);
+  border: 1px solid var(--line);
 }
 
 .hero-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 100%);
+  background: linear-gradient(90deg, var(--warn) 0%, var(--accent) 100%);
   border-radius: 99px;
   transition: width 0.25s ease;
 }
