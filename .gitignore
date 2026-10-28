@@ -39,3 +39,4 @@ desktop.ini
 
 # 吉祥物素材：仅本地保留，不随仓库公开
 web/assets/keke-*
+.check-*.png
