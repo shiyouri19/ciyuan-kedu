@@ -470,7 +470,6 @@ function applyUiTheme(themeKey, { switchRecommendedLayout = false, silent = fals
       /* ignore */
     }
   }
-  renderUiQuickBar();
   renderLayoutSwitcher();
   renderStudioSidebar();
   if (state.view === 'list') renderList();
@@ -487,52 +486,10 @@ function setLayoutMode(modeKey) {
   } catch {
     /* ignore */
   }
-  renderUiQuickBar();
   renderLayoutSwitcher();
   if (state.view === 'list') renderList();
 }
 
-function renderUiQuickBar() {
-  const bar = $('#uiQuickBar');
-  if (!bar) return;
-  bar.hidden = true;
-  bar.innerHTML = '';
-  return;
-  const inner = el('div', 'ui-quick-inner');
-
-  const left = el('div', 'ui-quick-group');
-  left.appendChild(el('span', 'ui-quick-label', 'UI 视觉样本快切：'));
-  for (const ed of UI_EDITIONS) {
-    const btn = el('button', 'ui-theme-chip' + (state.uiTheme === ed.key ? ' active' : ''));
-    btn.type = 'button';
-    btn.title = `${ed.name} — ${ed.scene}`;
-    const dot = el('span', 'ui-theme-dot');
-    dot.style.background = ed.accent;
-    btn.appendChild(dot);
-    btn.appendChild(el('span', '', ed.shortName));
-    btn.addEventListener('click', () => {
-      applyUiTheme(ed.key, { switchRecommendedLayout: true });
-    });
-    left.appendChild(btn);
-  }
-
-  const right = el('div', 'ui-quick-group');
-  right.appendChild(el('span', 'ui-quick-label', '列表密度：'));
-  for (const lm of LAYOUT_MODES) {
-    const lbtn = el('button', 'ui-theme-chip' + (state.layoutMode === lm.key ? ' active' : ''), lm.label);
-    lbtn.type = 'button';
-    lbtn.title = lm.title;
-    lbtn.addEventListener('click', () => {
-      setLayoutMode(lm.key);
-      if (state.view !== 'list') switchView('list');
-    });
-    right.appendChild(lbtn);
-  }
-
-  inner.appendChild(left);
-  inner.appendChild(right);
-  bar.appendChild(inner);
-}
 
 function renderLayoutSwitcher() {
   const wrap = $('#layoutSwitcher');
@@ -1230,20 +1187,6 @@ function renderWashiFocus(strip, items) {
 
   left.appendChild(info);
   hero.appendChild(left);
-
-  // ---- 中：刻刻气泡 ----
-  const mascot = el('div', 'hero-mascot-card');
-  mascot.title = '点击查看刻刻（Keke）设定档案';
-  const mimg = document.createElement('img');
-  mimg.src = '/assets/keke-chibi.png';
-  mimg.alt = '刻刻';
-  mimg.className = 'hero-mascot-avatar';
-  const speech = el('div', 'hero-mascot-speech');
-  speech.innerHTML = getMascotContextQuote(items);
-  mascot.appendChild(mimg);
-  mascot.appendChild(speech);
-  mascot.addEventListener('click', () => openMascotGalleryModal());
-  hero.appendChild(mascot);
 
   // ---- 右：按钮组 ----
   const actions = el('div', 'hero-actions');
@@ -3193,13 +3136,20 @@ async function switchView(view) {
     if (batchBar) batchBar.hidden = true;
   }
 
-  renderUiQuickBar();
   renderStudioSidebar();
   closeDrawer();
   if (isStats) await loadStats();
   else if (isSeasonal) await loadSeasonal();
   else await load();
 }
+
+/* ---------------- 季度新番导览与每日放送周历 ---------------- */
+
+const SEASONAL_SOURCE_OPTIONS = [
+  { key: 'all', label: '双源聚合 (Bangumi + 弹弹Play)' },
+  { key: 'bangumi', label: 'Bangumi 番组计划' },
+  { key: 'dandanplay', label: '弹弹Play' }
+];
 
 function applySeasonalPayload(res) {
   state.seasonalItems = res.data ?? [];
@@ -7238,7 +7188,6 @@ function handleHash() {
     openForm(null);
   } else if (h === 'seasonal') {
     switchView('seasonal');
-  } else if (false) {
   } else if (h === 'media') {
     openMediaScanModal();
   } else if (h === 'share') {
@@ -7262,7 +7211,6 @@ async function boot() {
   applyUiTheme(state.uiTheme, { switchRecommendedLayout: false, silent: true });
   renderTabs();
   renderLayoutSwitcher();
-  renderUiQuickBar();
   renderStudioSidebar();
   bindEvents();
   await loadRuntimeConfig();
